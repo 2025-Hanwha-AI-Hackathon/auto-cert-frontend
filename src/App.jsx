@@ -113,6 +113,19 @@ export default function App() {
     }
   };
 
+  // AI 채팅에서 사용할 인증서 갱신 함수
+  const handleChatRenew = (certificateId) => {
+    const cert = certificates.find(c => c.id === certificateId);
+    if (!cert) return false;
+    
+    setCertificates(prev => prev.map(c => 
+      c.id === certificateId 
+        ? { ...c, status: 'valid', expiryDate: '2026-11-05' }
+        : c
+    ));
+    return true;
+  };
+
   const handleViewDetails = (id) => {
     const cert = certificates.find(c => c.id === id);
     if (cert) {
@@ -310,6 +323,8 @@ export default function App() {
       <ChatSidebar 
         onFilterChange={setFilterStatus}
         stats={stats}
+        certificates={certificates}
+        onRenewCertificate={handleChatRenew}
       />
     </div>
   );

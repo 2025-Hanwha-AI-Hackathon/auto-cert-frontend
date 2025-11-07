@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
 import './ChatSidebar.css';
 
-const ChatSidebar = ({ onFilterChange, stats }) => {
+const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 1,
       role: 'assistant',
-      content: '안녕하세요! 인증서 관리에 대해 도움이 필요하신가요? 필터링 명령을 사용할 수 있습니다. 예: "유효한 인증서 보여줘", "만료된 인증서 필터링", "전체 보기" 등'
+      content: '안녕하세요! 인증서 관리에 대해 도움이 필요하신가요?\n\n사용 가능한 기능:\n📋 필터링: "유효한 인증서 보여줘", "만료된 인증서 필터링"\n📄 상태 조회: "인증서 목록", "인증서 상태", 특정 인증서 이름 검색\n🔄 갱신: "인증서 이름 갱신해줘"\n📊 통계: "통계", "현황"'
     }
   ]);
   const [inputValue, setInputValue] = useState('');
@@ -29,6 +29,28 @@ const ChatSidebar = ({ onFilterChange, stats }) => {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // 인증서 이름으로 검색하는 헬퍼 함수
+  const findCertificateByName = (userInput, certs) => {
+    if (!certs || certs.length === 0) return null;
+    
+    const inputLower = userInput.toLowerCase();
+    // 인증서 이름이나 도메인으로 검색
+    return certs.find(cert => 
+      cert.name.toLowerCase().includes(inputLower) ||
+      (cert.domain && cert.domain.toLowerCase().includes(inputLower))
+    );
+  };
+
+  // 만료일까지 남은 일수 계산
+  const calculateDaysUntilExpiry = (expiryDate) => {
+    if (!expiryDate) return null;
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
 
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -127,9 +149,100 @@ const ChatSidebar = ({ onFilterChange, stats }) => {
 특정 인증서에 대해 더 자세히 알고 싶으시면 알려주세요.`,
         action: null
       };
-    } else if (lowerInput.includes('갱신') || lowerInput.includes('renew')) {
+    } else if (
+      (lowerInput.includes('갱신') || lowerInput.includes('renew')) &&
+      !lowerInput.includes('방법') &&
+      !lowerInput.includes('설명')
+    ) {
+      // 인증서 갱신 기능
+      const certMatch = findCertificateByName(userInput, certificates);
+      if (certMatch) {
+        // 특정 인증서 갱신
+        if (onRenewCertificate) {
+          const success = onRenewCertificate(certMatch.id);
+          if (success) {
+            return {
+              content: `✅ "${certMatch.name}" 인증서가 성공적으로 갱신되었습니다!\n\n갱신 정보:\n- 인증서명: ${certMatch.name}\n- 도메인: ${certMatch.domain || 'N/A'}\n- 유형: ${certMatch.type}\n- 발급 기관: ${certMatch.issuer}\n- 갱신 후 상태: 유효\n- 새 만료일: 2026-11-05`,
+              action: { type: 'renew', certificateId: certMatch.id }
+            };
+          } else {
+            return {
+              content: `❌ "${certMatch.name}" 인증서 갱신에 실패했습니다. 다시 시도해주세요.`,
+              action: null
+            };
+          }
+        }
+      } else {
+        // 갱신 가능한 인증서 목록 표시
+        const renewables = certificates.filter(c => 
+          c.status === 'expired' || c.status === 'expiring-soon'
+        );
+        if (renewables.length > 0) {
+          const certList = renewables.map(c => 
+            `- ${c.name} (${c.domain || 'N/A'}) - ${c.status === 'expired' ? '만료됨' : '곧 만료'}`
+          ).join('\n');
+          return {
+            content: `갱신이 필요한 인증서 목록입니다:\n\n${certList}\n\n특정 인증서를 갱신하려면 인증서 이름을 포함해서 말씀해주세요. 예: "${renewables[0].name} 갱신해줘"`,
+            action: null
+          };
+        } else {
+          return {
+            content: `현재 갱신이 필요한 인증서가 없습니다. 모든 인증서가 유효한 상태입니다.`,
+            action: null
+          };
+        }
+      }
+    } else if (lowerInput.includes('갱신 방법') || (lowerInput.includes('갱신') && (lowerInput.includes('방법') || lowerInput.includes('설명')))) {
       return {
-        content: `인증서 갱신은 각 인증서 카드의 "갱신하기" 버튼을 클릭하시면 됩니다. 자동 갱신과 수동 갱신 중 선택할 수 있으며, 만료 알림 설정도 가능합니다.`,
+        content: `인증서 갱신 방법:\n\n1. 각 인증서 카드의 "갱신하기" 버튼을 클릭\n2. 자동 갱신 또는 수동 갱신 선택\n3. 만료 알림 설정 (7일, 30일, 60일 전)\n\n또는 채팅에서 인증서 이름을 포함하여 "갱신해줘"라고 말씀하시면 바로 갱신할 수 있습니다.`,
+        action: null
+      };
+    } else if (
+      lowerInput.includes('인증서 목록') || 
+      lowerInput.includes('인증서 리스트') || 
+      lowerInput.includes('목록') ||
+      (lowerInput.includes('인증서') && (lowerInput.includes('보기') || lowerInput.includes('조회')))
+    ) {
+      // 인증서 목록을 텍스트로 반환
+      if (certificates && certificates.length > 0) {
+        const certListText = certificates.map((cert, index) => {
+          const statusText = cert.status === 'valid' ? '✅ 유효' : 
+                            cert.status === 'expiring-soon' ? '⚠️ 곧 만료' : 
+                            '❌ 만료됨';
+          return `${index + 1}. ${cert.name}
+   - 도메인: ${cert.domain || 'N/A'}
+   - 유형: ${cert.type}
+   - 발급 기관: ${cert.issuer}
+   - 발급일: ${cert.issueDate}
+   - 만료일: ${cert.expiryDate}
+   - 상태: ${statusText}`;
+        }).join('\n\n');
+        
+        return {
+          content: `📋 전체 인증서 목록 (총 ${certificates.length}개):\n\n${certListText}\n\n특정 인증서의 상세 정보를 보려면 인증서 이름을 말씀해주세요.`,
+          action: null
+        };
+      } else {
+        return {
+          content: '현재 등록된 인증서가 없습니다.',
+          action: null
+        };
+      }
+    } else if (
+      lowerInput.includes('인증서 상태') || 
+      lowerInput.includes('상태 조회') ||
+      (lowerInput.includes('상태') && lowerInput.includes('인증서'))
+    ) {
+      // 인증서 상태 요약
+      const statusSummary = certificates ? certificates.map(cert => {
+        const statusText = cert.status === 'valid' ? '✅ 유효' : 
+                          cert.status === 'expiring-soon' ? '⚠️ 곧 만료' : 
+                          '❌ 만료됨';
+        return `${cert.name}: ${statusText} (만료일: ${cert.expiryDate})`;
+      }).join('\n') : '인증서 정보를 불러올 수 없습니다.';
+      
+      return {
+        content: `📊 인증서 상태 요약:\n\n${statusSummary}\n\n특정 인증서의 상세 정보를 보려면 인증서 이름을 말씀해주세요.`,
         action: null
       };
     } else if (lowerInput.includes('통계') || lowerInput.includes('statistics') || lowerInput.includes('현황')) {
@@ -158,6 +271,15 @@ const ChatSidebar = ({ onFilterChange, stats }) => {
 - "만료된 인증서" 또는 "만료된 인증서 필터링"
 - "전체 보기" 또는 "모든 인증서"
 
+📄 상태 조회:
+- "인증서 목록" 또는 "인증서 리스트" - 전체 인증서 목록
+- "인증서 상태" - 모든 인증서 상태 요약
+- 특정 인증서 이름 입력 - 해당 인증서 상세 정보
+
+🔄 갱신:
+- "인증서 이름 갱신해줘" - 특정 인증서 갱신
+- "갱신" - 갱신 가능한 인증서 목록
+
 📊 정보:
 - "통계" 또는 "현황" - 인증서 통계 확인
 - "인증서 설명" - 인증서 관리 기능 안내
@@ -165,6 +287,20 @@ const ChatSidebar = ({ onFilterChange, stats }) => {
         action: null
       };
     } else {
+      // 특정 인증서 검색
+      const certMatch = findCertificateByName(userInput, certificates);
+      if (certMatch) {
+        const statusText = certMatch.status === 'valid' ? '✅ 유효' : 
+                          certMatch.status === 'expiring-soon' ? '⚠️ 곧 만료' : 
+                          '❌ 만료됨';
+        const daysUntilExpiry = calculateDaysUntilExpiry(certMatch.expiryDate);
+        
+        return {
+          content: `📄 인증서 상세 정보:\n\n인증서명: ${certMatch.name}\n도메인: ${certMatch.domain || 'N/A'}\n유형: ${certMatch.type}\n발급 기관: ${certMatch.issuer}\n발급일: ${certMatch.issueDate}\n만료일: ${certMatch.expiryDate}\n상태: ${statusText}\n${daysUntilExpiry ? `만료까지: ${daysUntilExpiry}일` : ''}\n\n이 인증서를 갱신하려면 "갱신해줘"라고 말씀해주세요.`,
+          action: null
+        };
+      }
+      
       return {
         content: `죄송합니다. 이해하지 못했습니다. 다음 명령을 시도해보세요:
       
@@ -172,6 +308,9 @@ const ChatSidebar = ({ onFilterChange, stats }) => {
 - "곧 만료될 인증서"
 - "만료된 인증서"
 - "전체 보기"
+- "인증서 목록" - 전체 인증서 목록 보기
+- "인증서 이름" - 특정 인증서 정보 조회
+- "인증서 이름 갱신해줘" - 인증서 갱신
 - "통계"
 - "도움말"
 
