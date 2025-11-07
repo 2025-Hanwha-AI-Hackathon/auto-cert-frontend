@@ -73,14 +73,16 @@ export function CertificateCard({ certificate, onRenew, onViewDetails }) {
               <span className="detail-value">{certificate.expiryDate}</span>
             </div>
           </div>
-          {certificate.status !== 'expired' && (
-            <div className="detail-row remaining-days-row">
-              <span className="detail-label">남은 기간</span>
+          <div className="detail-row remaining-days-row">
+            <span className="detail-label">남은 기간</span>
+            {certificate.status === 'expired' ? (
+              <span className="detail-value remaining-days-expired">만료됨</span>
+            ) : (
               <span className={daysRemaining <= 30 ? "detail-value remaining-days-warning" : "detail-value"}>
                 {daysRemaining}일
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

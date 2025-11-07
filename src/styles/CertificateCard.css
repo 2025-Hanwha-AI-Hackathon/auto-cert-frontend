@@ -5,6 +5,9 @@
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.3s;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
 }
 
 .certificate-card:hover {
@@ -87,6 +90,7 @@
 /* 카드 본문 */
 .card-body {
   margin-bottom: 1rem;
+  flex: 1;
 }
 
 .card-details {
@@ -132,10 +136,16 @@
   font-weight: 500;
 }
 
+.remaining-days-expired {
+  color: #991b1b;
+  font-weight: 500;
+}
+
 /* 카드 액션 */
 .card-actions {
   display: flex;
   gap: 0.5rem;
+  margin-top: auto;
 }
 
 .card-actions .btn {
