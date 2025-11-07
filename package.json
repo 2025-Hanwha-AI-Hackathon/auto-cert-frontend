@@ -54,6 +54,8 @@
       },
       "scripts": {
           "dev": "vite",
-          "build": "vite build"
-      }
+          "build": "vite build",
+          "preview": "vite preview"
+      },
+      "homepage": "https://2025-Hanwha-AI-Hackathon.github.io/auto-cert-frontend"
   }
