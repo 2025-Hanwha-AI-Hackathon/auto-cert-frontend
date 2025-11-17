@@ -1,7 +1,7 @@
-import { Shield, Calendar, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Shield, Calendar, AlertTriangle, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import "../styles/CertificateCard.css";
 
-export function CertificateCard({ certificate, onRenew, onViewDetails }) {
+export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer, httpsTestFailed }) {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'valid':
@@ -47,13 +47,20 @@ export function CertificateCard({ certificate, onRenew, onViewDetails }) {
           </div>
           <div className="card-info">
             <h3>{certificate.name}</h3>
-            <p>{certificate.type}</p>
             {certificate.domain && (
               <p>{certificate.domain}</p>
             )}
+            {(!hasServer || httpsTestFailed) && (
+              <p className="card-warning-message">
+                <AlertCircle size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                인증서가 서버에 적용되지 않았습니다.
+              </p>
+            )}
           </div>
         </div>
-        {getStatusBadge(certificate.status)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {getStatusBadge(certificate.status)}
+        </div>
       </div>
 
       <div className="card-body">
@@ -98,7 +105,7 @@ export function CertificateCard({ certificate, onRenew, onViewDetails }) {
           className="btn btn-primary"
           disabled={certificate.status === 'valid' && daysRemaining > 30}
         >
-          갱신하기
+          {hasServer ? '인증서 갱신' : '인증서 적용'}
         </button>
       </div>
     </div>

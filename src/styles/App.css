@@ -28,6 +28,11 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  transition: opacity 0.2s;
+}
+
+.header-left:hover {
+  opacity: 0.8;
 }
 
 .header-icon {
@@ -49,6 +54,541 @@
   color: #6b7280;
   font-size: 0.875rem;
   margin: 0;
+}
+
+.form-value {
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #1f2937;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* 인증서 상세 정보 테이블 */
+.certificate-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.certificate-detail-table th {
+  background-color: #f9fafb;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+  width: 30%;
+  vertical-align: middle;
+}
+
+.certificate-detail-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  word-break: break-word;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+
+.certificate-detail-table td svg {
+  vertical-align: middle;
+  display: inline-block;
+}
+
+.certificate-detail-table tr:last-child th,
+.certificate-detail-table tr:last-child td {
+  border-bottom: none;
+}
+
+.certificate-detail-table tr:hover {
+  background-color: #f9fafb;
+}
+
+/* 갱신 진행 다이얼로그 */
+.progress-dialog {
+  max-width: 600px;
+}
+
+/* 인증서 갱신 애니메이션 */
+.certificate-animation-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+  gap: 1.5rem;
+}
+
+.certificate-animation-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.certificate-icon {
+  color: #FF6600;
+  z-index: 2;
+  position: relative;
+}
+
+.certificate-icon.animating {
+  animation: certificatePulse 2s ease-in-out infinite, certificateFloat 3s ease-in-out infinite;
+  color: #FF6600;
+}
+
+.certificate-icon.completed {
+  color: #10b981;
+  animation: certificateSuccess 0.6s ease-out;
+}
+
+.certificate-icon.failed {
+  color: #dc2626;
+  animation: certificateFailed 0.6s ease-out;
+}
+
+.certificate-icon.deploying {
+  color: #FF6600;
+}
+
+@keyframes certificatePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+@keyframes certificateFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes certificateSuccess {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.success-check-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #10b981;
+  z-index: 3;
+  animation: checkMarkAppear 0.5s ease-out 0.3s both;
+}
+
+.error-check-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #dc2626;
+  z-index: 3;
+  animation: errorMarkAppear 0.5s ease-out 0.3s both;
+}
+
+@keyframes checkMarkAppear {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes certificateFailed {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes errorMarkAppear {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 파티클 효과 */
+.certificate-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #FF6600, #FF8533);
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.particle-1 {
+  top: 20%;
+  left: 20%;
+  animation: particleFloat 2s ease-in-out infinite;
+}
+
+.particle-2 {
+  top: 20%;
+  right: 20%;
+  animation: particleFloat 2s ease-in-out infinite 0.5s;
+}
+
+.particle-3 {
+  bottom: 20%;
+  left: 20%;
+  animation: particleFloat 2s ease-in-out infinite 1s;
+}
+
+.particle-4 {
+  bottom: 20%;
+  right: 20%;
+  animation: particleFloat 2s ease-in-out infinite 1.5s;
+}
+
+@keyframes particleFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.7;
+  }
+  25% {
+    transform: translate(10px, -15px) scale(1.2);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-5px, -25px) scale(0.8);
+    opacity: 0.5;
+  }
+  75% {
+    transform: translate(-10px, -10px) scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* 배포 중 애니메이션 */
+.deploy-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.deploy-arrow {
+  position: absolute;
+  font-size: 1.5rem;
+  color: #FF6600;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.deploy-arrow-1 {
+  top: 15%;
+  left: 10%;
+  animation: deployArrowMove 1.5s ease-in-out infinite;
+}
+
+.deploy-arrow-2 {
+  top: 50%;
+  left: 15%;
+  animation: deployArrowMove 1.5s ease-in-out infinite 0.5s;
+}
+
+.deploy-arrow-3 {
+  bottom: 15%;
+  left: 20%;
+  animation: deployArrowMove 1.5s ease-in-out infinite 1s;
+}
+
+@keyframes deployArrowMove {
+  0% {
+    transform: translateX(-20px) translateY(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(0) translateY(-5px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(20px) translateY(0);
+    opacity: 0;
+  }
+}
+
+.progress-status-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.6;
+  max-width: 500px;
+}
+
+/* 진행 바 컨테이너 */
+.renew-progress-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1rem 0;
+}
+
+/* 전체 진행 바 */
+.progress-bar-wrapper {
+  width: 100%;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FF6600 0%, #FF8533 100%);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 단계 라벨 */
+.progress-steps-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  margin-top: 1rem;
+}
+
+.progress-step-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.progress-step-label.active {
+  opacity: 1;
+}
+
+.progress-step-label.completed {
+  opacity: 1;
+}
+
+.progress-step-dot {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.progress-step-label.active .progress-step-dot {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.progress-step-label.completed .progress-step-dot {
+  background-color: #dcfce7;
+  border-color: #10b981;
+}
+
+.progress-step-number {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.progress-step-label.active .progress-step-number {
+  color: #3b82f6;
+}
+
+.progress-step-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.progress-step-label.active .progress-step-text {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.progress-step-label.completed .progress-step-text {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.progress-step-label.failed .progress-step-dot {
+  background-color: #fee2e2;
+  border-color: #dc2626;
+}
+
+.progress-step-label.failed .progress-step-text {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.progress-error-icon {
+  color: #dc2626;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.progress-check-icon {
+  color: #10b981;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.progress-check-icon.success-icon {
+  color: #10b981;
+  animation: scaleInBounce 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleInBounce {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.progress-success-message {
+  margin: 1rem 0 0 0;
+  color: #10b981;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.progress-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 메인 컨텐츠 */
@@ -125,6 +665,20 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+  min-height: 200px;
+}
+
+.certificate-card {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .empty-state {
@@ -211,7 +765,45 @@
 }
 
 .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 1rem;
+  position: relative;
+}
+
+.dialog-header > div {
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.dialog-header .dialog-title {
+  margin-right: 0;
+}
+
+.dialog-header .dialog-description {
+  margin-right: 0;
+}
+
+.dialog-header .btn-icon-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-header .btn-icon-close:hover {
+  background-color: #f3f4f6;
+  color: #374151;
 }
 
 .dialog-title {
@@ -268,14 +860,6 @@
   outline: none;
   border-color: #FF6600;
   box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
-}
-
-.form-value {
-  padding: 0.5rem 0;
-  font-size: 0.875rem;
-  color: #1f2937;
-  font-weight: 500;
-  word-break: break-word;
 }
 
 .form-row {

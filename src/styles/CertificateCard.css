@@ -52,6 +52,16 @@
   font-size: 0.875rem;
 }
 
+.card-warning-message {
+  margin: 0.5rem 0 0 0 !important;
+  color: #F59E0B !important;
+  font-size: 0.75rem !important;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 /* 배지 스타일 */
 .badge {
   display: inline-flex;
@@ -80,6 +90,12 @@
   background-color: #fee2e2;
   color: #991b1b;
   border-color: #fecaca;
+}
+
+.badge-https-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
 }
 
 .badge-icon {
