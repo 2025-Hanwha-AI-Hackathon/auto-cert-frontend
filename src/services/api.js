@@ -1,4 +1,7 @@
-const API_BASE_URL = 'https://auto-cert-backend-production.up.railway.app';
+// 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
+const API_BASE_URL = import.meta.env.DEV 
+  ? '' // 개발 환경: Vite 프록시 사용
+  : 'https://auto-cert-backend-production.up.railway.app'; // 프로덕션 환경: 직접 URL
 
 /**
  * API 응답 처리를 위한 헬퍼 함수
