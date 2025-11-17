@@ -270,6 +270,14 @@
   box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
 }
 
+.form-value {
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #1f2937;
+  font-weight: 500;
+  word-break: break-word;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
