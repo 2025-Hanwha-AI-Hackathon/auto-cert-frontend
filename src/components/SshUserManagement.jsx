@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { User, Plus, X, Edit, Trash2, Server } from 'lucide-react';
+import { User, Plus, X, Edit, Trash2 } from 'lucide-react';
 import '../styles/SshUserManagement.css';
 
 export function SshUserManagement({ 
   sshUsers, 
-  servers,
   onAddSshUser, 
   onUpdateSshUser, 
   onDeleteSshUser 
@@ -15,8 +14,7 @@ export function SshUserManagement({
     username: '',
     password: '',
     privateKey: '',
-    description: '',
-    assignedServers: []
+    description: ''
   });
 
   const handleAddSshUser = () => {
@@ -33,18 +31,16 @@ export function SshUserManagement({
     if (selectedSshUser) {
       onUpdateSshUser({
         ...selectedSshUser,
-        ...sshUserFormData,
-        assignedServers: sshUserFormData.assignedServers || []
+        ...sshUserFormData
       });
     } else {
       onAddSshUser({
-        ...sshUserFormData,
-        assignedServers: sshUserFormData.assignedServers || []
+        ...sshUserFormData
       });
     }
 
     setSshUserDialogOpen(false);
-    setSshUserFormData({ username: '', password: '', privateKey: '', description: '', assignedServers: [] });
+    setSshUserFormData({ username: '', password: '', privateKey: '', description: '' });
     setSelectedSshUser(null);
   };
 
@@ -54,39 +50,26 @@ export function SshUserManagement({
       username: sshUser.username || '',
       password: '', // 보안을 위해 비밀번호는 표시하지 않음
       privateKey: '', // 보안을 위해 개인키는 표시하지 않음
-      description: sshUser.description || '',
-      assignedServers: sshUser.assignedServers || []
+      description: sshUser.description || ''
     });
     setSshUserDialogOpen(true);
   };
 
   const handleDeleteSshUser = (sshUserId) => {
-    if (window.confirm('정말로 이 SSH 유저를 삭제하시겠습니까? 이 유저가 할당된 서버에서도 제거됩니다.')) {
+    if (window.confirm('정말로 이 SSH 유저를 삭제하시겠습니까?')) {
       onDeleteSshUser(sshUserId);
     }
-  };
-
-  const handleServerToggle = (serverId) => {
-    const currentServers = sshUserFormData.assignedServers || [];
-    const isAssigned = currentServers.includes(serverId);
-    
-    setSshUserFormData(prev => ({
-      ...prev,
-      assignedServers: isAssigned
-        ? currentServers.filter(id => id !== serverId)
-        : [...currentServers, serverId]
-    }));
   };
 
   return (
     <div className="ssh-user-management">
       <div className="ssh-user-management-header">
         <h2>SSH 유저 관리</h2>
-        <button 
+          <button 
           className="btn btn-primary"
           onClick={() => {
             setSelectedSshUser(null);
-            setSshUserFormData({ username: '', password: '', privateKey: '', description: '', assignedServers: [] });
+            setSshUserFormData({ username: '', password: '', privateKey: '', description: '' });
             setSshUserDialogOpen(true);
           }}
         >
@@ -97,64 +80,42 @@ export function SshUserManagement({
 
       <div className="ssh-users-list">
         {sshUsers && sshUsers.length > 0 ? (
-          sshUsers.map((sshUser) => {
-            const assignedServersList = servers.filter(s => 
-              sshUser.assignedServers && sshUser.assignedServers.includes(s.id)
-            );
-
-            return (
-              <div key={sshUser.id} className="ssh-user-card">
-                <div className="ssh-user-card-header">
-                  <div className="ssh-user-card-info">
-                    <User size={20} className="ssh-user-icon" />
-                    <div>
-                      <h3>{sshUser.username}</h3>
-                      {sshUser.description && (
-                        <p className="ssh-user-description">{sshUser.description}</p>
-                      )}
-                      <div className="ssh-user-meta">
-                        <span className={`auth-method ${sshUser.privateKey ? 'key-auth' : 'password-auth'}`}>
-                          {sshUser.privateKey ? '🔑 키 인증' : '🔒 비밀번호 인증'}
-                        </span>
-                      </div>
+          sshUsers.map((sshUser) => (
+            <div key={sshUser.id} className="ssh-user-card">
+              <div className="ssh-user-card-header">
+                <div className="ssh-user-card-info">
+                  <User size={20} className="ssh-user-icon" />
+                  <div>
+                    <h3>{sshUser.username}</h3>
+                    {sshUser.description && (
+                      <p className="ssh-user-description">{sshUser.description}</p>
+                    )}
+                    <div className="ssh-user-meta">
+                      <span className={`auth-method ${sshUser.privateKey ? 'key-auth' : 'password-auth'}`}>
+                        {sshUser.privateKey ? '🔑 키 인증' : '🔒 비밀번호 인증'}
+                      </span>
                     </div>
                   </div>
-                  <div className="ssh-user-card-actions">
-                    <button
-                      className="btn-icon"
-                      onClick={() => handleEditSshUser(sshUser)}
-                      title="SSH 유저 수정"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      className="btn-icon btn-icon-danger"
-                      onClick={() => handleDeleteSshUser(sshUser.id)}
-                      title="SSH 유저 삭제"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
                 </div>
-                {assignedServersList.length > 0 && (
-                  <div className="ssh-user-servers">
-                    <strong>할당된 서버:</strong>
-                    {assignedServersList.map(server => (
-                      <span key={server.id} className="server-tag">
-                        <Server size={12} style={{ marginRight: '0.25rem' }} />
-                        {server.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {assignedServersList.length === 0 && (
-                  <div className="ssh-user-no-servers">
-                    <small style={{ color: '#9ca3af' }}>할당된 서버가 없습니다.</small>
-                  </div>
-                )}
+                <div className="ssh-user-card-actions">
+                  <button
+                    className="btn-icon"
+                    onClick={() => handleEditSshUser(sshUser)}
+                    title="SSH 유저 수정"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    className="btn-icon btn-icon-danger"
+                    onClick={() => handleDeleteSshUser(sshUser.id)}
+                    title="SSH 유저 삭제"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-            );
-          })
+            </div>
+          ))
         ) : (
           <div className="empty-state">
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -228,36 +189,6 @@ export function SshUserManagement({
                 <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
                   SSH 개인키를 입력하세요 (비밀번호 없이 키 인증 사용 시)
                 </small>
-              </div>
-              
-              <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>서버 할당</h3>
-                <div className="server-assignment-list">
-                  {servers.length > 0 ? (
-                    servers.map(server => {
-                      const isAssigned = (sshUserFormData.assignedServers || []).includes(server.id);
-                      return (
-                        <label 
-                          key={server.id} 
-                          className="server-assignment-item"
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', cursor: 'pointer' }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isAssigned}
-                            onChange={() => handleServerToggle(server.id)}
-                          />
-                          <Server size={16} style={{ color: '#6b7280' }} />
-                          <span>{server.name} ({server.host}:{server.port})</span>
-                        </label>
-                      );
-                    })
-                  ) : (
-                    <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-                      등록된 서버가 없습니다. 먼저 서버를 추가해주세요.
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
             <div className="dialog-footer">
