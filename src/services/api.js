@@ -1,7 +1,21 @@
-// 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
-const API_BASE_URL = import.meta.env.DEV 
-  ? '' // 개발 환경: Vite 프록시 사용
-  : 'https://auto-cert-backend-production.up.railway.app'; // 프로덕션 환경: 직접 URL
+// API 베이스 URL 설정
+// 테스트 모드: 실제 API 호출 (프로덕션 서버)
+// 개발 모드: 더미 데이터 사용 (API 호출 안 함)
+const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === 'true' || import.meta.env.MODE === 'test';
+
+// 테스트 모드와 개발 모드 모두 프로덕션 서버 사용 (테스트 모드에서만 실제 API 호출)
+const API_BASE_URL = 'https://auto-cert-backend-production.up.railway.app';
+
+// 디버깅용 (개발 시에만 콘솔 출력)
+if (import.meta.env.DEV) {
+  console.log('API Mode:', {
+    MODE: import.meta.env.MODE,
+    DEV: import.meta.env.DEV,
+    VITE_TEST_MODE: import.meta.env.VITE_TEST_MODE,
+    IS_TEST_MODE: IS_TEST_MODE,
+    API_BASE_URL: API_BASE_URL
+  });
+}
 
 /**
  * API 응답 처리를 위한 헬퍼 함수
@@ -44,23 +58,42 @@ async function handleResponse(response) {
  * @param {number} page - 페이지 번호 (0부터 시작)
  * @param {number} size - 페이지 크기
  * @param {string[]} sort - 정렬 기준 (예: ["createdAt,DESC"])
- * @returns {Promise<Object>} 인증서 목록 및 페이지네이션 정보
+ * @returns {Promise<Object>} 인증서 목록 및 페이지네이션 정보 (PageResponse 형식)
  */
 export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DESC']) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const params = new URLSearchParams({
-  //   page: page.toString(),
-  //   size: size.toString()
-  // });
-  // 
-  // // sort 파라미터 추가 (Spring Boot는 배열 형태로 받음)
-  // sort.forEach((s, idx) => {
-  //   params.append('sort', s);
-  // });
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates?${params}`);
-  // return handleResponse(response);
+  // 테스트 모드에서만 실제 API 호출
+  if (IS_TEST_MODE) {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString()
+    });
+    
+    // sort 파라미터 추가 (Spring Boot는 배열 형태로 받음)
+    sort.forEach((s) => {
+      params.append('sort', s);
+    });
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/certificates?${params}`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('인증서 목록 조회 실패:', error);
+      // API 호출 실패 시 빈 결과 반환
+      return {
+        content: [],
+        page: page,
+        size: size,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+        hasNext: false,
+        hasPrevious: false
+      };
+    }
+  }
   
-  // 더미 데이터 반환 (테스트용)
+  // 개발 모드: 더미 데이터 반환
   return Promise.resolve({
     content: [
       {
@@ -69,7 +102,7 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         issuer: "Let's Encrypt",
         issuedAt: '2024-01-15T00:00:00Z',
         expiresAt: '2024-04-15T00:00:00Z',
-        status: 'valid',
+        status: 'ACTIVE',
         renewalAttempts: 0,
         lastError: null,
         createdAt: '2024-01-15T00:00:00Z',
@@ -81,38 +114,65 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         issuer: "Let's Encrypt",
         issuedAt: '2024-01-10T00:00:00Z',
         expiresAt: '2024-03-10T00:00:00Z',
-        status: 'expiring-soon',
+        status: 'EXPIRING_SOON',
         renewalAttempts: 0,
         lastError: null,
         createdAt: '2024-01-10T00:00:00Z',
         updatedAt: '2024-01-10T00:00:00Z'
+      },
+      {
+        id: 3,
+        domain: 'expired.example.com',
+        issuer: "Let's Encrypt",
+        issuedAt: '2023-01-01T00:00:00Z',
+        expiresAt: '2024-01-01T00:00:00Z',
+        status: 'EXPIRED',
+        renewalAttempts: 1,
+        lastError: null,
+        createdAt: '2023-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
       }
     ],
-    totalElements: 2,
-    totalPages: 1,
+    page: page,
     size: size,
-    number: page
+    totalElements: 3,
+    totalPages: 1,
+    first: true,
+    last: true,
+    hasNext: false,
+    hasPrevious: false
   });
 }
 
 /**
  * 인증서 상세 조회
  * @param {number} id - 인증서 ID
- * @returns {Promise<Object>} 인증서 상세 정보
+ * @returns {Promise<Object>} 인증서 상세 정보 (CertificateResponse 형식)
  */
 export async function getCertificate(id) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`);
-  // return handleResponse(response);
+  // 테스트 모드에서만 실제 API 호출
+  if (IS_TEST_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('인증서 상세 조회 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환
+  // 개발 모드: 더미 데이터 반환
   return Promise.resolve({
     id: parseInt(id),
     domain: 'example.com',
     issuer: "Let's Encrypt",
     issuedAt: '2024-01-15T00:00:00Z',
     expiresAt: '2024-04-15T00:00:00Z',
-    status: 'valid'
+    status: 'ACTIVE',
+    renewalAttempts: 0,
+    lastError: null,
+    createdAt: '2024-01-15T00:00:00Z',
+    updatedAt: '2024-01-15T00:00:00Z'
   });
 }
 
@@ -120,21 +180,34 @@ export async function getCertificate(id) {
  * 인증서 생성
  * @param {Object} certificateData - 인증서 생성 데이터
  * @param {string} certificateData.domain - 도메인 (필수)
- * @param {string} certificateData.challengeType - 챌린지 타입 (선택)
- * @returns {Promise<Object>} 생성된 인증서 정보
+ * @param {string} certificateData.challengeType - 챌린지 타입 (선택, "dns-01" 또는 "http-01")
+ * @returns {Promise<Object>} 생성된 인증서 정보 (CertificateResponse 형식)
  */
 export async function createCertificate(certificateData) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates`, {
-  //   method: 'POST',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify(certificateData),
-  // });
-  // return handleResponse(response);
+  // 테스트 모드에서만 실제 API 호출
+  if (IS_TEST_MODE) {
+    // 백엔드 API 형식에 맞게 변환
+    const requestBody = {
+      domain: certificateData.domain,
+      challengeType: certificateData.challengeType || null
+    };
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/certificates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('인증서 생성 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 1000));
   return Promise.resolve({
     id: Date.now(),
@@ -142,25 +215,34 @@ export async function createCertificate(certificateData) {
     issuer: "Let's Encrypt",
     issuedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'valid',
+    status: 'ACTIVE',
     renewalAttempts: 0,
-    lastError: null
+    lastError: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   });
 }
 
 /**
  * 인증서 갱신
  * @param {number} id - 인증서 ID
- * @returns {Promise<Object>} 갱신된 인증서 정보
+ * @returns {Promise<Object>} 갱신된 인증서 정보 (CertificateResponse 형식)
  */
 export async function renewCertificate(id) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}/renew`, {
-  //   method: 'POST',
-  // });
-  // return handleResponse(response);
+  // 테스트 모드에서만 실제 API 호출
+  if (IS_TEST_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}/renew`, {
+        method: 'POST',
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('인증서 갱신 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 1000));
   return Promise.resolve({
     id: parseInt(id),
@@ -168,8 +250,11 @@ export async function renewCertificate(id) {
     issuer: "Let's Encrypt",
     issuedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'valid',
-    renewalAttempts: 1
+    status: 'ACTIVE',
+    renewalAttempts: 1,
+    lastError: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   });
 }
 
@@ -179,18 +264,26 @@ export async function renewCertificate(id) {
  * @returns {Promise<void>}
  */
 export async function deleteCertificate(id) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`, {
-  //   method: 'DELETE',
-  // });
-  // 
-  // if (response.status === 204) {
-  //   return;
-  // }
-  // 
-  // return handleResponse(response);
+  // 테스트 모드에서만 실제 API 호출
+  if (IS_TEST_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`, {
+        method: 'DELETE',
+      });
+      
+      // 204 No Content 또는 200 OK 모두 처리
+      if (response.status === 204 || response.status === 200) {
+        return;
+      }
+      
+      return handleResponse(response);
+    } catch (error) {
+      console.error('인증서 삭제 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 300));
   return Promise.resolve();
 }
@@ -207,13 +300,19 @@ export async function checkHealth() {
 /**
  * 서버 목록 조회
  * @returns {Promise<Array>} 서버 목록
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function getServers() {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/servers`);
-  // return handleResponse(response);
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers`);
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('서버 목록 조회 실패:', error);
+  //   return [];
+  // }
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   return Promise.resolve([
     {
       id: 1,
@@ -243,19 +342,25 @@ export async function getServers() {
  * 서버 추가
  * @param {Object} serverData - 서버 데이터
  * @returns {Promise<Object>} 생성된 서버 정보
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function createServer(serverData) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
-  //   method: 'POST',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify(serverData),
-  // });
-  // return handleResponse(response);
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //     },
+  //     body: JSON.stringify(serverData),
+  //   });
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('서버 추가 실패:', error);
+  //   throw error;
+  // }
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   await new Promise(resolve => setTimeout(resolve, 500));
   return Promise.resolve({
     id: Date.now(),
@@ -269,19 +374,25 @@ export async function createServer(serverData) {
  * @param {number} id - 서버 ID
  * @param {Object} serverData - 서버 데이터
  * @returns {Promise<Object>} 수정된 서버 정보
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function updateServer(id, serverData) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
-  //   method: 'PUT',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify(serverData),
-  // });
-  // return handleResponse(response);
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
+  //     method: 'PUT',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //     },
+  //     body: JSON.stringify(serverData),
+  //   });
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('서버 수정 실패:', error);
+  //   throw error;
+  // }
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   await new Promise(resolve => setTimeout(resolve, 500));
   return Promise.resolve({ id: parseInt(id), ...serverData });
 }
@@ -290,20 +401,26 @@ export async function updateServer(id, serverData) {
  * 서버 삭제
  * @param {number} id - 서버 ID
  * @returns {Promise<void>}
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function deleteServer(id) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
-  //   method: 'DELETE',
-  // });
-  // 
-  // if (response.status === 204) {
-  //   return;
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
+  //     method: 'DELETE',
+  //   });
+  //   
+  //   if (response.status === 204 || response.status === 200) {
+  //     return;
+  //   }
+  //   
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('서버 삭제 실패:', error);
+  //   throw error;
   // }
-  // 
-  // return handleResponse(response);
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   await new Promise(resolve => setTimeout(resolve, 300));
   return Promise.resolve();
 }
@@ -313,19 +430,25 @@ export async function deleteServer(id) {
  * @param {number} serverId - 서버 ID
  * @param {Object} sshUserData - SSH 유저 데이터
  * @returns {Promise<Object>} 생성된 SSH 유저 정보
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function addSshUser(serverId, sshUserData) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}/ssh-users`, {
-  //   method: 'POST',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify(sshUserData),
-  // });
-  // return handleResponse(response);
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers/${serverId}/ssh-users`, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //     },
+  //     body: JSON.stringify(sshUserData),
+  //   });
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('SSH 유저 추가 실패:', error);
+  //   throw error;
+  // }
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   await new Promise(resolve => setTimeout(resolve, 500));
   return Promise.resolve({
     id: Date.now(),
@@ -338,13 +461,19 @@ export async function addSshUser(serverId, sshUserData) {
  * 인증서 배포 상태 확인
  * @param {number} certificateId - 인증서 ID
  * @returns {Promise<Object>} 배포 상태 정보
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function getDeploymentStatus(certificateId) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${certificateId}/deployment-status`);
-  // return handleResponse(response);
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${certificateId}/deployment-status`);
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('배포 상태 확인 실패:', error);
+  //   throw error;
+  // }
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   return Promise.resolve({
     deployed: Math.random() > 0.3,
     deployedAt: new Date().toISOString(),
@@ -357,19 +486,25 @@ export async function getDeploymentStatus(certificateId) {
  * @param {number} certificateId - 인증서 ID
  * @param {Object} deploymentData - 배포 데이터 (serverId, sshUserId 등)
  * @returns {Promise<Object>} 배포 결과
+ * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function deployCertificate(certificateId, deploymentData) {
-  // TODO: 백엔드 연동 시 주석 해제
-  // const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${certificateId}/deploy`, {
-  //   method: 'POST',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify(deploymentData),
-  // });
-  // return handleResponse(response);
+  // TODO: 백엔드 API 구현 후 주석 해제
+  // try {
+  //   const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${certificateId}/deploy`, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //     },
+  //     body: JSON.stringify(deploymentData),
+  //   });
+  //   return handleResponse(response);
+  // } catch (error) {
+  //   console.error('인증서 배포 실패:', error);
+  //   throw error;
+  // }
   
-  // 더미 데이터 반환
+  // 더미 데이터 반환 (백엔드 미구현)
   await new Promise(resolve => setTimeout(resolve, 1500));
   return Promise.resolve({
     success: true,

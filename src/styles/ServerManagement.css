@@ -53,13 +53,19 @@
 
 .server-icon {
   color: #6366f1;
-  margin-top: 0.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.server-card-info > div {
+  flex: 1;
 }
 
 .server-card-info h3 {
   margin: 0 0 0.25rem 0;
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .server-card-info p {
@@ -150,11 +156,19 @@
   text-align: center;
   padding: 3rem 1rem;
   color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 }
 
 .empty-icon {
   color: #d1d5db;
-  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.empty-state p {
+  margin: 0;
 }
 
 

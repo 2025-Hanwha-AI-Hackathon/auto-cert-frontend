@@ -4,7 +4,10 @@ import { CertificateStats } from "./components/CertificateStats";
 import { ServerManagement } from "./components/ServerManagement";
 import ChatSidebar from "./components/ChatSidebar";
 import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, ExternalLink, AlertCircle, XCircle } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./components/ui/tooltip";
+import hanwhaLogo from "./assets/ci_logo_b.png";
 import { 
+  getCertificates as getCertificatesAPI,
   getServers,
   createServer,
   updateServer as updateServerAPI,
@@ -85,7 +88,11 @@ const initialCertificates = [
 ];
 
 export default function App() {
-  const [certificates, setCertificates] = useState(initialCertificates);
+  // 테스트 모드 여부 확인 (로컬 백엔드 사용 여부)
+  const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === 'true' || import.meta.env.MODE === 'test';
+  
+  // 인증서는 API에서 로드하므로 빈 배열로 시작
+  const [certificates, setCertificates] = useState([]);
   const [servers, setServers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -134,63 +141,76 @@ export default function App() {
   const [httpsTestResult, setHttpsTestResult] = useState(null);
   const [isTestingHttps, setIsTestingHttps] = useState(false);
 
-  // 서버 목록 로드
+  // 페이지 진입 시 서버 목록 및 인증서 목록 로드
   useEffect(() => {
+    // 페이지 진입과 동시에 인증서 정보 로드
+    loadCertificates();
     loadServers();
   }, []);
 
+  /**
+   * 인증서 목록을 API에서 가져오는 함수
+   * 페이지 진입 시 자동으로 호출됨
+   */
+  const loadCertificates = async () => {
+    try {
+      console.log('인증서 목록 조회 시작...');
+      const response = await getCertificatesAPI(0, 100);
+      
+      if (response && response.content) {
+        // API 응답을 프론트엔드 형식으로 변환
+        const transformedCertificates = response.content.map(cert => {
+          // 백엔드 CertificateStatus를 프론트엔드 상태로 변환
+          let status = 'expired';
+          if (cert.status === 'ACTIVE') {
+            status = 'valid';
+          } else if (cert.status === 'EXPIRING_SOON') {
+            status = 'expiring-soon';
+          } else if (cert.status === 'EXPIRED' || cert.status === 'REVOKED' || cert.status === 'FAILED' || cert.status === 'INACTIVE') {
+            status = 'expired';
+          } else if (cert.status === 'PENDING' || cert.status === 'ISSUING' || cert.status === 'RENEWING') {
+            // 처리 중인 상태는 valid로 표시 (UI에서 처리 중 표시 가능)
+            status = 'valid';
+          }
+          
+          return {
+            id: String(cert.id),
+            name: cert.domain || `인증서 #${cert.id}`,
+            type: "SSL/TLS 인증서",
+            domain: cert.domain,
+            issuer: cert.issuer || "Let's Encrypt",
+            issueDate: cert.issuedAt ? new Date(cert.issuedAt).toISOString().split('T')[0] : '',
+            expiryDate: cert.expiresAt ? new Date(cert.expiresAt).toISOString().split('T')[0] : '',
+            status: status,
+            alarmDaysBefore: 30,
+            managerName: '',
+            serverId: cert.serverId,
+            deployedAt: cert.deployedAt,
+            // 백엔드 원본 상태도 저장 (필요시 사용)
+            rawStatus: cert.status,
+            renewalAttempts: cert.renewalAttempts || 0,
+            lastError: cert.lastError || null
+          };
+        });
+        
+        setCertificates(transformedCertificates);
+        console.log(`인증서 목록 로드 완료: ${transformedCertificates.length}개`);
+      } else {
+        console.log('인증서 목록이 비어있습니다.');
+        setCertificates([]);
+      }
+    } catch (err) {
+      console.error('인증서 목록 조회 실패:', err);
+      setCertificates([]);
+    }
+  };
+
   const loadServers = async () => {
     try {
-      // TODO: 백엔드 연동 시 주석 해제
-      // const serversData = await getServers();
-      // setServers(serversData || []);
-      
-      // 더미 데이터 (테스트용)
-      const mockServers = [
-        {
-          id: 1,
-          name: '프로덕션 서버',
-          host: '192.168.1.100',
-          port: 22,
-          serverType: 'nginx',
-          description: '메인 프로덕션 서버',
-          sshUsername: 'root',
-          sshPort: 22,
-          deployPath: '/etc/nginx/ssl',
-          sshAuthType: 'password', // 'password' or 'key'
-          sshPassword: '',
-          sshPrivateKey: ''
-        },
-        {
-          id: 2,
-          name: '스테이징 서버',
-          host: '192.168.1.101',
-          port: 22,
-          serverType: 'tomcat',
-          description: '스테이징 환경 서버',
-          sshUsername: 'admin',
-          sshPort: 22,
-          deployPath: '/opt/tomcat/conf',
-          sshAuthType: 'key',
-          sshPassword: '',
-          sshPrivateKey: ''
-        },
-        {
-          id: 3,
-          name: '개발 서버',
-          host: 'dev.example.com',
-          port: 22,
-          serverType: '기타',
-          description: '개발 환경 서버',
-          sshUsername: 'deploy',
-          sshPort: 22,
-          deployPath: '/home/deploy/ssl',
-          sshAuthType: 'password',
-          sshPassword: '',
-          sshPrivateKey: ''
-        }
-      ];
-      setServers(mockServers);
+      // 서버 API는 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
+      // TODO: 백엔드 API 구현 후 실제 API 호출로 변경
+      const serversData = await getServers(); // getServers는 내부적으로 더미 데이터 반환
+      setServers(serversData || []);
     } catch (err) {
       console.error('서버 목록 조회 실패:', err);
       setServers([]);
@@ -849,7 +869,7 @@ export default function App() {
       const updatedServer = { ...serverData };
       
       setServers(prev => prev.map(s => String(s.id) === String(updatedServer.id) ? updatedServer : s));
-      alert("서버가 성공적으로 수정되었습니다!");
+      alert("SSH 정보가 변경되었습니다!");
     } catch (err) {
       console.error('서버 수정 실패:', err);
       alert(`서버 수정에 실패했습니다: ${err.message}`);
@@ -880,31 +900,53 @@ export default function App() {
               style={{ cursor: 'pointer' }}
             >
               <div className="header-icon">
-                <Shield style={{ width: '2rem', height: '2rem', color: 'white' }} />
+                <img 
+                  src={hanwhaLogo} 
+                  alt="한화 로고" 
+                  className="header-logo"
+                />
               </div>
               <div className="header-title">
-                <h1>인증서 관리 시스템</h1>
+                <h1>SSL/TLS 인증서 관리 시스템</h1>
                 <p className="header-subtitle">Certificate Management Dashboard</p>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button 
-                onClick={() => setActiveTab('servers')}
-                className={`btn ${activeTab === 'servers' ? 'btn-primary' : 'btn-outline'}`}
-              >
-                <ServerIcon style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-                서버 관리
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab('certificates');
-                  setAddDialogOpen(true);
-                }}
-                className="btn btn-primary"
-              >
-                <Plus style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-                새 인증서 추가
-              </button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => setActiveTab('servers')}
+                      className={`btn ${activeTab === 'servers' ? 'btn-primary' : 'btn-outline'} responsive-icon-button`}
+                    >
+                      <ServerIcon style={{ width: '1rem', height: '1rem' }} className="button-icon" />
+                      <span className="button-text">서버 관리</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>서버 관리</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => {
+                        setActiveTab('certificates');
+                        setAddDialogOpen(true);
+                      }}
+                      className="btn btn-primary responsive-icon-button"
+                    >
+                      <Plus style={{ width: '1rem', height: '1rem' }} className="button-icon" />
+                      <span className="button-text">새 인증서 추가</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>새 인증서 추가</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -951,25 +993,25 @@ export default function App() {
         </div>
 
         {/* 인증서 목록 */}
-        <div className="certificates-grid">
-          {filteredCertificates.map((cert) => {
-            const hasServer = cert.serverId !== null && cert.serverId !== undefined;
-            const httpsTestFailed = cert.httpsTestFailed === true;
-            return (
-              <CertificateCard
-                key={cert.id}
-                certificate={cert}
-                onRenew={handleRenew}
-                onViewDetails={handleViewDetails}
-                hasServer={hasServer}
-                httpsTestFailed={httpsTestFailed}
-              />
-            );
-          })}
-        </div>
-
-        {filteredCertificates.length === 0 && (
-          <div className="empty-state">
+        {filteredCertificates.length > 0 ? (
+          <div className="certificates-grid">
+            {filteredCertificates.map((cert) => {
+              const hasServer = cert.serverId !== null && cert.serverId !== undefined;
+              const httpsTestFailed = cert.httpsTestFailed === true;
+              return (
+                <CertificateCard
+                  key={cert.id}
+                  certificate={cert}
+                  onRenew={handleRenew}
+                  onViewDetails={handleViewDetails}
+                  hasServer={hasServer}
+                  httpsTestFailed={httpsTestFailed}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="empty-state-full">
             <Shield className="empty-state-icon" />
             <h3>인증서가 없습니다</h3>
             <p>검색 조건을 변경하거나 새 인증서를 추가해보세요.</p>
@@ -1029,9 +1071,8 @@ export default function App() {
               </div>
               
               {needsServerSetup && (
-                <div className="dialog-body" style={{ paddingTop: '0.5rem' }}>
-                  <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e5e7eb' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>서버 배포 설정</h3>
+                <div className="dialog-body" style={{ paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', marginTop: 0 }}>서버 배포 설정</h3>
                     
                     <div className="form-group">
                       <label className="form-label">서버 선택</label>
@@ -1258,12 +1299,27 @@ export default function App() {
                                   </div>
                                 </div>
                               ) : (
-                                <div style={{ fontSize: '0.875rem' }}>
-                                  <div>서버 타입: {selectedServer.serverType || '미설정'}</div>
-                                  <div>SSH 사용자명: {selectedServer.sshUsername || '미설정'}</div>
-                                  <div>SSH 포트: {selectedServer.sshPort || 22}</div>
-                                  <div>배포 경로: {selectedServer.deployPath || '미설정'}</div>
-                                  <div>인증 방식: {selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</div>
+                                <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>서버 타입:</span>
+                                    <span style={{ color: '#6b7280' }}>{selectedServer.serverType || '미설정'}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 사용자명:</span>
+                                    <span style={{ color: '#6b7280' }}>{selectedServer.sshUsername || '미설정'}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 포트:</span>
+                                    <span style={{ color: '#6b7280' }}>{selectedServer.sshPort || 22}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>배포 경로:</span>
+                                    <span style={{ color: '#6b7280' }}>{selectedServer.deployPath || '미설정'}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
+                                    <span style={{ color: '#6b7280' }}>{selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</span>
+                                  </div>
                                 </div>
                               )}
                               {(!selectedServer.sshUsername || !selectedServer.deployPath) && !isEditingSsh && (
@@ -1275,7 +1331,6 @@ export default function App() {
                           </div>
                         );
                       })()}
-                  </div>
                 </div>
               )}
               
@@ -1295,6 +1350,7 @@ export default function App() {
                 <button 
                   className="btn btn-primary" 
                   onClick={confirmRenew}
+                  disabled={isSubmitting}
                 >
                   갱신하기
                 </button>
@@ -1617,12 +1673,27 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ fontSize: '0.875rem' }}>
-                            <div>서버 타입: {selectedServer.serverType || '미설정'}</div>
-                            <div>SSH 사용자명: {selectedServer.sshUsername || '미설정'}</div>
-                            <div>SSH 포트: {selectedServer.sshPort || 22}</div>
-                            <div>배포 경로: {selectedServer.deployPath || '미설정'}</div>
-                            <div>인증 방식: {selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</div>
+                          <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>서버 타입:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.serverType || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 사용자명:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.sshUsername || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 포트:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.sshPort || 22}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>배포 경로:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.deployPath || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</span>
+                            </div>
                           </div>
                         )}
                         {(!selectedServer.sshUsername || !selectedServer.deployPath) && !isEditingSsh && (
@@ -1726,8 +1797,8 @@ export default function App() {
       {renewProgressDialogOpen && (
         <div className="dialog-overlay" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
           <div className="dialog-content progress-dialog" onClick={(e) => e.stopPropagation()}>
-            {/* 테스트 버튼 (개발용 - 로컬 개발 환경에서만 표시) */}
-            {import.meta.env.DEV && (
+            {/* 테스트 버튼 (개발용 - npm run dev일 때만 표시) */}
+            {!IS_TEST_MODE && (
               <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
               <button
                 className="btn btn-outline"
@@ -2241,7 +2312,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* 서버 정보 테이블 */}
+              {/* 배포된 서버 정보 */}
               <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', margin: 0 }}>배포된 서버 정보</h3>
@@ -2266,6 +2337,24 @@ export default function App() {
                   (() => {
                     const deployedServer = servers.find(s => String(s.id) === String(selectedCertificate.serverId));
                     if (deployedServer) {
+                      // 배포 시간 포맷팅
+                      const formatDate = (dateString) => {
+                        if (!dateString) return 'N/A';
+                        try {
+                          const date = new Date(dateString);
+                          return date.toLocaleString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          });
+                        } catch (e) {
+                          return dateString;
+                        }
+                      };
+                      
                       return (
                         <table className="certificate-detail-table">
                           <tbody>
@@ -2278,8 +2367,46 @@ export default function App() {
                               <td>{deployedServer.host}:{deployedServer.port}</td>
                             </tr>
                             <tr>
+                              <th>서버 타입</th>
+                              <td>{deployedServer.serverType || 'N/A'}</td>
+                            </tr>
+                            <tr>
                               <th>설명</th>
                               <td>{deployedServer.description || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th>SSH 사용자명</th>
+                              <td>{deployedServer.sshUsername || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th>SSH 포트</th>
+                              <td>{deployedServer.sshPort || 22}</td>
+                            </tr>
+                            <tr>
+                              <th>배포 경로</th>
+                              <td>{deployedServer.deployPath || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th>인증 방식</th>
+                              <td>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  padding: '0.25rem 0.5rem',
+                                  backgroundColor: deployedServer.sshAuthType === 'key' ? '#fef3c7' : '#dbeafe',
+                                  color: deployedServer.sshAuthType === 'key' ? '#92400e' : '#1e40af',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.875rem',
+                                  fontWeight: 500
+                                }}>
+                                  {deployedServer.sshAuthType === 'key' ? '🔑 키 인증' : '🔒 비밀번호 인증'}
+                                </span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <th>배포 시간</th>
+                              <td>{formatDate(selectedCertificate.deployedAt)}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -2324,142 +2451,61 @@ export default function App() {
                 )}
               </div>
 
-              {/* SSH 유저 정보 테이블 */}
-              <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', margin: 0 }}>배포된 서버 정보</h3>
-                  {!selectedCertificate.serverId && (
-                    <span style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      gap: '0.25rem',
-                      padding: '0.25rem 0.5rem',
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.75rem',
-                      fontWeight: 500
+              {/* SSH 유저 정보 (서버가 없을 때만 표시) */}
+              {!selectedCertificate.serverId && (
+                <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1rem' }}>SSH 연결 정보</h3>
+                  {selectedCertificate.sshUserInputData ? (
+                    <table className="certificate-detail-table">
+                      <tbody>
+                        <tr>
+                          <th>SSH 사용자명</th>
+                          <td>{selectedCertificate.sshUserInputData.username}</td>
+                        </tr>
+                        <tr>
+                          <th>설명</th>
+                          <td>{selectedCertificate.sshUserInputData.description || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                          <th>인증 방식</th>
+                          <td>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              padding: '0.25rem 0.5rem',
+                              backgroundColor: selectedCertificate.sshUserInputData.privateKey ? '#fef3c7' : '#dbeafe',
+                              color: selectedCertificate.sshUserInputData.privateKey ? '#92400e' : '#1e40af',
+                              borderRadius: '0.375rem',
+                              fontSize: '0.875rem',
+                              fontWeight: 500
+                            }}>
+                              {selectedCertificate.sshUserInputData.privateKey ? '🔑 키 인증' : '🔒 비밀번호 인증'}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{
+                      padding: '1.5rem',
+                      textAlign: 'center',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '0.5rem',
+                      border: '1px dashed #e5e7eb',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}>
-                      <AlertCircle size={12} />
-                      서버 미설정
-                    </span>
+                      <Users size={32} style={{ color: '#d1d5db', marginBottom: '0.75rem' }} />
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
+                        SSH 연결 정보가 없습니다.
+                      </p>
+                    </div>
                   )}
                 </div>
-                {selectedCertificate.serverId ? (
-                  (() => {
-                    const usedServer = servers.find(s => String(s.id) === String(selectedCertificate.serverId));
-                    if (usedServer) {
-                      return (
-                        <table className="certificate-detail-table">
-                          <tbody>
-                            <tr>
-                              <th>서버 타입</th>
-                              <td>{usedServer.serverType || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th>SSH 사용자명</th>
-                              <td>{usedServer.sshUsername || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th>SSH 포트</th>
-                              <td>{usedServer.sshPort || 22}</td>
-                            </tr>
-                            <tr>
-                              <th>배포 경로</th>
-                              <td>{usedServer.deployPath || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <th>인증 방식</th>
-                              <td>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem',
-                                  padding: '0.25rem 0.5rem',
-                                  backgroundColor: usedServer.sshAuthType === 'key' ? '#fef3c7' : '#dbeafe',
-                                  color: usedServer.sshAuthType === 'key' ? '#92400e' : '#1e40af',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.875rem',
-                                  fontWeight: 500
-                                }}>
-                                  {usedServer.sshAuthType === 'key' ? '🔑 키 인증' : '🔒 비밀번호 인증'}
-                                </span>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      );
-                    } else {
-                      return (
-                        <div style={{
-                          padding: '1.5rem',
-                          textAlign: 'center',
-                          backgroundColor: '#f9fafb',
-                          borderRadius: '0.5rem',
-                          border: '1px dashed #e5e7eb',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <Users size={32} style={{ color: '#d1d5db', marginBottom: '0.75rem' }} />
-                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-                            SSH 유저 정보를 찾을 수 없습니다.
-                          </p>
-                        </div>
-                      );
-                    }
-                  })()
-                ) : selectedCertificate.sshUserInput ? (
-                  <table className="certificate-detail-table">
-                    <tbody>
-                      <tr>
-                        <th>SSH 사용자명</th>
-                        <td>{selectedCertificate.sshUserInput.username}</td>
-                      </tr>
-                      <tr>
-                        <th>설명</th>
-                        <td>{selectedCertificate.sshUserInput.description || 'N/A'}</td>
-                      </tr>
-                      <tr>
-                        <th>인증 방식</th>
-                        <td>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            padding: '0.25rem 0.5rem',
-                            backgroundColor: selectedCertificate.sshUserInput.privateKey ? '#fef3c7' : '#dbeafe',
-                            color: selectedCertificate.sshUserInput.privateKey ? '#92400e' : '#1e40af',
-                            borderRadius: '0.375rem',
-                            fontSize: '0.875rem',
-                            fontWeight: 500
-                          }}>
-                            {selectedCertificate.sshUserInput.privateKey ? '🔑 키 인증' : '🔒 비밀번호 인증'}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                ) : (
-                  <div style={{
-                    padding: '1.5rem',
-                    textAlign: 'center',
-                    backgroundColor: '#f9fafb',
-                    borderRadius: '0.5rem',
-                    border: '1px dashed #e5e7eb',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Users size={32} style={{ color: '#d1d5db', marginBottom: '0.75rem' }} />
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-                      갱신 시 사용한 SSH 유저 정보가 없습니다.
-                    </p>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* HTTPS 테스트 */}
               {selectedCertificate.domain && (

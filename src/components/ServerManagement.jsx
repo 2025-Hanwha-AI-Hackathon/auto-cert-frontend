@@ -10,6 +10,7 @@ export function ServerManagement({
 }) {
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState(null);
+  const [mouseDownTarget, setMouseDownTarget] = useState(null);
   const [serverFormData, setServerFormData] = useState({
     name: '',
     host: '',
@@ -173,7 +174,25 @@ export function ServerManagement({
 
       {/* 서버 추가/수정 다이얼로그 */}
       {serverDialogOpen && (
-        <div className="dialog-overlay" onClick={() => setServerDialogOpen(false)}>
+        <div 
+          className="dialog-overlay" 
+          onMouseDown={(e) => {
+            // 다이얼로그 내부에서 마우스 다운이 시작되었는지 확인
+            if (e.target === e.currentTarget) {
+              setMouseDownTarget(e.target);
+            } else {
+              setMouseDownTarget(null);
+            }
+          }}
+          onClick={(e) => {
+            // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
+            // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
+            if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+              setServerDialogOpen(false);
+            }
+            setMouseDownTarget(null);
+          }}
+        >
           <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h2 className="dialog-title">

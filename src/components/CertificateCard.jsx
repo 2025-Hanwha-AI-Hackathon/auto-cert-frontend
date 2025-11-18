@@ -1,29 +1,102 @@
 import { Shield, Calendar, AlertTriangle, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./ui/tooltip";
+import { useEffect, useRef, useState } from "react";
 import "../styles/CertificateCard.css";
 
 export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer, httpsTestFailed }) {
+  const badgeRef = useRef(null);
+  const warningRef = useRef(null);
+  const [badgeWrapped, setBadgeWrapped] = useState(false);
+  const [warningWrapped, setWarningWrapped] = useState(false);
+
+  // 줄바꿈 감지 함수
+  const checkWrapping = (element, setWrapped, textSelector) => {
+    if (!element) return;
+    const textElement = element.querySelector(textSelector);
+    if (textElement) {
+      // 텍스트 요소의 실제 너비가 부모 요소의 너비보다 크면 줄바꿈 발생
+      const textWidth = textElement.scrollWidth;
+      const containerWidth = element.clientWidth;
+      
+      // 약간의 여유를 두고 비교 (1px 여유)
+      if (textWidth > containerWidth + 1) {
+        setWrapped(true);
+      } else {
+        setWrapped(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const checkElements = () => {
+      if (badgeRef.current) {
+        checkWrapping(badgeRef.current, setBadgeWrapped, '.badge-text');
+      }
+      if (warningRef.current) {
+        checkWrapping(warningRef.current, setWarningWrapped, '.warning-text');
+      }
+    };
+
+    checkElements();
+    window.addEventListener('resize', checkElements);
+    // 약간의 지연 후 다시 체크 (렌더링 완료 후)
+    const timeout = setTimeout(checkElements, 100);
+
+    return () => {
+      window.removeEventListener('resize', checkElements);
+      clearTimeout(timeout);
+    };
+  }, [certificate]);
   const getStatusBadge = (status) => {
+    const badgeClass = `badge responsive-badge ${badgeWrapped ? 'wrapped' : ''}`;
     switch (status) {
       case 'valid':
         return (
-          <span className="badge badge-valid">
-            <CheckCircle2 className="badge-icon" />
-            유효
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span ref={badgeRef} className={`${badgeClass} badge-valid`}>
+                  <CheckCircle2 className="badge-icon" />
+                  <span className="badge-text">유효</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>유효</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
       case 'expiring-soon':
         return (
-          <span className="badge badge-expiring">
-            <AlertTriangle className="badge-icon" />
-            곧 만료
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span ref={badgeRef} className={`${badgeClass} badge-expiring`}>
+                  <AlertTriangle className="badge-icon" />
+                  <span className="badge-text">곧 만료</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>곧 만료</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
       case 'expired':
         return (
-          <span className="badge badge-expired">
-            <XCircle className="badge-icon" />
-            만료됨
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span ref={badgeRef} className={`${badgeClass} badge-expired`}>
+                  <XCircle className="badge-icon" />
+                  <span className="badge-text">만료됨</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>만료됨</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
     }
   };
@@ -42,23 +115,29 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
     <div className="certificate-card">
       <div className="card-header">
         <div className="card-header-left">
-          <div className="card-icon-wrapper">
-            <Shield className="card-icon" />
-          </div>
           <div className="card-info">
             <h3>{certificate.name}</h3>
             {certificate.domain && (
               <p>{certificate.domain}</p>
             )}
             {(!hasServer || httpsTestFailed) && (
-              <p className="card-warning-message">
-                <AlertCircle size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-                인증서가 서버에 적용되지 않았습니다.
-              </p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p ref={warningRef} className={`card-warning-message responsive-warning ${warningWrapped ? 'wrapped' : ''}`}>
+                      <AlertCircle size={18} className="warning-icon" />
+                      <span className="warning-text">인증서가 서버에 적용되지 않았습니다.</span>
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>인증서가 서버에 적용되지 않았습니다.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
           {getStatusBadge(certificate.status)}
         </div>
       </div>
@@ -103,7 +182,6 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
         <button
           onClick={() => onRenew(certificate.id)}
           className="btn btn-primary"
-          disabled={certificate.status === 'valid' && daysRemaining > 30}
         >
           {hasServer ? '인증서 갱신' : '인증서 적용'}
         </button>

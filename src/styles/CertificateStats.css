@@ -37,6 +37,17 @@
   margin: 0 0 0.5rem 0;
 }
 
+.stat-title-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 줄바꿈이 발생하는 경우 텍스트 숨기기 (JavaScript로 처리) */
+.stat-card.wrapped .stat-title-text {
+  display: none;
+}
+
 .stat-value {
   font-size: 1.875rem;
   font-weight: 600;
@@ -49,8 +60,8 @@
 }
 
 .stat-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 /* 반응형 */
@@ -65,3 +76,5 @@
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* 줄바꿈 감지는 JavaScript로 처리 */
