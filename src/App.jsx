@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { CertificateCard } from "./components/CertificateCard";
 import { CertificateStats } from "./components/CertificateStats";
 import { ServerManagement } from "./components/ServerManagement";
-import { SshUserManagement } from "./components/SshUserManagement";
 import ChatSidebar from "./components/ChatSidebar";
 import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, ExternalLink, AlertCircle, XCircle } from "lucide-react";
 import { 
@@ -25,7 +24,9 @@ const initialCertificates = [
     issuer: "Let's Encrypt",
     issueDate: "2024-05-01",
     expiryDate: "2025-05-01",
-    status: "valid"
+    status: "valid",
+    alarmDaysBefore: 30, // 만료 전 알람 발송 일자
+    managerName: "홍길동"
   },
   {
     id: "2",
@@ -35,7 +36,8 @@ const initialCertificates = [
     issuer: "DigiCert",
     issueDate: "2024-10-15",
     expiryDate: "2025-12-15",
-    status: "valid"
+    status: "valid",
+    managerName: "김철수"
   },
   {
     id: "3",
@@ -45,7 +47,8 @@ const initialCertificates = [
     issuer: "Let's Encrypt",
     issueDate: "2024-11-01",
     expiryDate: "2025-11-20",
-    status: "expiring-soon"
+    status: "expiring-soon",
+    managerName: "이영희"
   },
   {
     id: "4",
@@ -54,7 +57,8 @@ const initialCertificates = [
     issuer: "Apple Developer",
     issueDate: "2023-11-01",
     expiryDate: "2024-11-01",
-    status: "expired"
+    status: "expired",
+    managerName: "박민수"
   },
   {
     id: "5",
@@ -64,7 +68,8 @@ const initialCertificates = [
     issuer: "Let's Encrypt",
     issueDate: "2024-09-10",
     expiryDate: "2025-11-30",
-    status: "expiring-soon"
+    status: "expiring-soon",
+    managerName: "최지영"
   },
   {
     id: "6",
@@ -74,29 +79,21 @@ const initialCertificates = [
     issuer: "Comodo",
     issueDate: "2024-03-01",
     expiryDate: "2026-03-01",
-    status: "valid"
+    status: "valid",
+    managerName: "정수진"
   }
 ];
 
 export default function App() {
   const [certificates, setCertificates] = useState(initialCertificates);
   const [servers, setServers] = useState([]);
-  const [sshUsers, setSshUsers] = useState([]); // 독립적인 SSH 유저 목록
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [activeTab, setActiveTab] = useState("certificates"); // "certificates", "servers", or "ssh-users"
+  const [activeTab, setActiveTab] = useState("certificates"); // "certificates" or "servers"
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedCertId, setSelectedCertId] = useState(null);
   const [renewFormData, setRenewFormData] = useState({
     serverId: '',
-    sshUserId: '',
-    sshUserInputMode: 'select', // 'select' or 'input'
-    sshUserInputData: {
-      username: '',
-      password: '',
-      privateKey: '',
-      description: ''
-    },
     deployImmediately: false
   });
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -104,16 +101,22 @@ export default function App() {
     domain: '',
     challengeType: 'DNS',
     serverId: '',
-    sshUserId: '',
-    sshUserInputMode: 'select', // 'select' or 'input'
-    sshUserInputData: {
-      username: '',
-      password: '',
-      privateKey: '',
-      description: ''
-    },
+    alarmDaysBefore: 30, // 만료 전 알람 발송 일자
+    managerName: '',
     deployImmediately: false
   });
+  const [sshEditMode, setSshEditMode] = useState(false);
+  const [sshEditServerId, setSshEditServerId] = useState(null);
+  const [sshEditData, setSshEditData] = useState({
+    sshUsername: '',
+    sshPort: 22,
+    deployPath: '',
+    sshAuthType: 'password',
+    sshPassword: '',
+    sshPrivateKey: ''
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [mouseDownTarget, setMouseDownTarget] = useState(null);
   const [deployConfirmDialogOpen, setDeployConfirmDialogOpen] = useState(false);
   const [pendingDeployData, setPendingDeployData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,32 +152,42 @@ export default function App() {
           name: '프로덕션 서버',
           host: '192.168.1.100',
           port: 22,
+          serverType: 'nginx',
           description: '메인 프로덕션 서버',
-          sshUsers: [
-            { id: 1, username: 'root', serverId: 1 },
-            { id: 2, username: 'ubuntu', serverId: 1 }
-          ]
+          sshUsername: 'root',
+          sshPort: 22,
+          deployPath: '/etc/nginx/ssl',
+          sshAuthType: 'password', // 'password' or 'key'
+          sshPassword: '',
+          sshPrivateKey: ''
         },
         {
           id: 2,
           name: '스테이징 서버',
           host: '192.168.1.101',
           port: 22,
+          serverType: 'tomcat',
           description: '스테이징 환경 서버',
-          sshUsers: [
-            { id: 3, username: 'admin', serverId: 2 }
-          ]
+          sshUsername: 'admin',
+          sshPort: 22,
+          deployPath: '/opt/tomcat/conf',
+          sshAuthType: 'key',
+          sshPassword: '',
+          sshPrivateKey: ''
         },
         {
           id: 3,
           name: '개발 서버',
           host: 'dev.example.com',
           port: 22,
+          serverType: '기타',
           description: '개발 환경 서버',
-          sshUsers: [
-            { id: 4, username: 'deploy', serverId: 3 },
-            { id: 5, username: 'docker', serverId: 3 }
-          ]
+          sshUsername: 'deploy',
+          sshPort: 22,
+          deployPath: '/home/deploy/ssl',
+          sshAuthType: 'password',
+          sshPassword: '',
+          sshPrivateKey: ''
         }
       ];
       setServers(mockServers);
@@ -209,18 +222,12 @@ export default function App() {
     if (cert && cert.serverId) {
       setRenewFormData({
         serverId: cert.serverId,
-        sshUserId: cert.sshUserId || '',
-        sshUserInputMode: cert.sshUserInput ? 'input' : 'select',
-        sshUserInputData: cert.sshUserInput || { username: '', password: '', privateKey: '', description: '' },
         deployImmediately: false
       });
     } else {
       // 서버 정보가 없으면 초기화
       setRenewFormData({
         serverId: '',
-        sshUserId: '',
-        sshUserInputMode: 'select',
-        sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
         deployImmediately: false
       });
     }
@@ -240,48 +247,28 @@ export default function App() {
       return;
     }
 
-    // SSH 유저 정보 검증
+    // 서버 정보 검증 (서버 선택 시 서버에 SSH 정보가 있는지 확인)
     if (renewFormData.serverId) {
-      if (renewFormData.sshUserInputMode === 'select' && !renewFormData.sshUserId) {
-        alert('SSH 유저를 선택하거나 직접 입력해주세요.');
+      const selectedServer = servers.find(s => String(s.id) === String(renewFormData.serverId));
+      if (!selectedServer) {
+        alert('선택한 서버를 찾을 수 없습니다.');
         return;
       }
-      if (renewFormData.sshUserInputMode === 'input') {
-        if (!renewFormData.sshUserInputData.username.trim()) {
-          alert('SSH 사용자명을 입력해주세요.');
-          return;
-        }
-        if (!renewFormData.sshUserInputData.password && !renewFormData.sshUserInputData.privateKey) {
-          alert('비밀번호 또는 개인키 중 하나를 입력해주세요.');
-          return;
-        }
+      // 갱신 시에는 항상 배포하므로 SSH 정보 필수
+      if (!selectedServer.sshUsername || !selectedServer.deployPath) {
+        alert('인증서 갱신 시 배포를 위해 서버에 SSH 정보가 설정되어 있어야 합니다. 서버 관리에서 SSH 정보를 설정해주세요.');
+        return;
       }
     }
 
-    // 서버 배포 설정이 있으면 인증서에 업데이트 (SSH 유저 ID 또는 직접 입력 정보 저장)
-    if (renewFormData.serverId && !cert.serverId) {
+    // 서버 배포 설정이 있으면 인증서에 업데이트
+    if (renewFormData.serverId) {
       setCertificates(prev => prev.map(c => 
         c.id === selectedCertId 
           ? { 
               ...c, 
-              serverId: renewFormData.serverId,
-              sshUserId: renewFormData.sshUserInputMode === 'select' ? (renewFormData.sshUserId || c.sshUserId) : null,
-              sshUserInput: renewFormData.sshUserInputMode === 'input' ? renewFormData.sshUserInputData : null
+              serverId: renewFormData.serverId
             }
-          : c
-      ));
-    } else if (renewFormData.sshUserInputMode === 'select' && renewFormData.sshUserId) {
-      // 서버는 이미 있지만 SSH 유저만 업데이트하는 경우 (선택 모드)
-      setCertificates(prev => prev.map(c => 
-        c.id === selectedCertId 
-          ? { ...c, sshUserId: renewFormData.sshUserId, sshUserInput: null }
-          : c
-      ));
-    } else if (renewFormData.sshUserInputMode === 'input' && renewFormData.sshUserInputData.username) {
-      // 서버는 이미 있지만 SSH 유저만 업데이트하는 경우 (직접 입력 모드)
-      setCertificates(prev => prev.map(c => 
-        c.id === selectedCertId 
-          ? { ...c, sshUserId: null, sshUserInput: renewFormData.sshUserInputData }
           : c
       ));
     }
@@ -309,9 +296,6 @@ export default function App() {
           setSelectedCertId(null);
           setRenewFormData({ 
         serverId: '', 
-        sshUserId: '', 
-        sshUserInputMode: 'select',
-        sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
         deployImmediately: false 
       });
         }, 3000);
@@ -325,7 +309,6 @@ export default function App() {
               ...cert, 
               status: 'valid', 
               expiryDate: '2026-11-05',
-              sshUserId: renewFormData.sshUserId || cert.sshUserId // 갱신 시 사용한 SSH 유저 ID 저장
             }
           : cert
       ));
@@ -344,9 +327,6 @@ export default function App() {
           setSelectedCertId(null);
           setRenewFormData({ 
         serverId: '', 
-        sshUserId: '', 
-        sshUserInputMode: 'select',
-        sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
         deployImmediately: false 
       });
         }, 3000);
@@ -367,9 +347,6 @@ export default function App() {
           setSelectedCertId(null);
           setRenewFormData({ 
         serverId: '', 
-        sshUserId: '', 
-        sshUserInputMode: 'select',
-        sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
         deployImmediately: false 
       });
         }, 3000);
@@ -613,25 +590,26 @@ export default function App() {
       // 더미 인증서 생성 (테스트용)
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // SSH 유저 정보 검증
+      // 서버 정보 검증 (서버 선택 시 서버에 SSH 정보가 있는지 확인)
       if (addFormData.serverId) {
-        if (addFormData.sshUserInputMode === 'select' && !addFormData.sshUserId) {
-          alert('SSH 유저를 선택하거나 직접 입력해주세요.');
+        const selectedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
+        if (!selectedServer) {
+          alert('선택한 서버를 찾을 수 없습니다.');
           setIsSubmitting(false);
           return;
         }
-        if (addFormData.sshUserInputMode === 'input') {
-          if (!addFormData.sshUserInputData.username.trim()) {
-            alert('SSH 사용자명을 입력해주세요.');
-            setIsSubmitting(false);
-            return;
-          }
-          if (!addFormData.sshUserInputData.password && !addFormData.sshUserInputData.privateKey) {
-            alert('비밀번호 또는 개인키 중 하나를 입력해주세요.');
-            setIsSubmitting(false);
-            return;
-          }
+        if (!selectedServer.sshUsername || !selectedServer.deployPath) {
+          alert('선택한 서버에 SSH 정보가 설정되지 않았습니다. 서버 관리에서 SSH 정보를 설정해주세요.');
+          setIsSubmitting(false);
+          return;
         }
+      }
+
+      // 담당자 정보 검증 (필수)
+      if (!addFormData.managerName.trim()) {
+        alert('담당자 이름은 필수 입력 항목입니다.');
+        setIsSubmitting(false);
+        return;
       }
 
       const newCert = {
@@ -644,30 +622,14 @@ export default function App() {
         expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'valid',
         serverId: addFormData.serverId || null,
-        sshUserId: addFormData.sshUserInputMode === 'select' ? addFormData.sshUserId || null : null,
-        sshUserInput: addFormData.sshUserInputMode === 'input' ? addFormData.sshUserInputData : null
+        alarmDaysBefore: addFormData.alarmDaysBefore || 30,
+        managerName: addFormData.managerName.trim()
       };
       
       setCertificates(prev => [newCert, ...prev]);
       
-      // 배포 옵션이 선택되었으면 배포 확인 다이얼로그 표시
-      const hasSshUser = addFormData.sshUserInputMode === 'select' 
-        ? addFormData.sshUserId 
-        : (addFormData.sshUserInputData.username && (addFormData.sshUserInputData.password || addFormData.sshUserInputData.privateKey));
-      
-      if (addFormData.deployImmediately && addFormData.serverId && hasSshUser) {
-        // 인증서에 서버 ID 및 SSH 유저 정보 저장
-        setCertificates(prev => prev.map(cert => 
-          cert.id === newCert.id 
-            ? { 
-                ...cert, 
-                serverId: addFormData.serverId,
-                sshUserId: addFormData.sshUserInputMode === 'select' ? addFormData.sshUserId : null,
-                sshUserInput: addFormData.sshUserInputMode === 'input' ? addFormData.sshUserInputData : null
-              }
-            : cert
-        ));
-        
+      // 배포 옵션이 선택되었으면 배포 프로세스 시작
+      if (addFormData.deployImmediately && addFormData.serverId) {
         setAddDialogOpen(false);
         
         // 진행 다이얼로그 열기
@@ -675,8 +637,8 @@ export default function App() {
         setRenewProgress({ step: 0, message: '인증서 생성 및 배포를 시작합니다...', error: null, type: 'add' });
         addCancelledRef.current = false;
         
-        // 배포 프로세스 시작
-        confirmAddAndDeploy(newCert.id, addFormData.serverId, addFormData.sshUserInputMode === 'select' ? addFormData.sshUserId : null, addFormData.sshUserInputMode === 'input' ? addFormData.sshUserInputData : null);
+        // 배포 프로세스 시작 (서버의 SSH 정보 사용)
+        confirmAddAndDeploy(newCert.id, addFormData.serverId);
       } else {
         alert("새 인증서가 성공적으로 추가되었습니다!");
         setAddDialogOpen(false);
@@ -684,9 +646,12 @@ export default function App() {
           domain: '', 
           challengeType: 'DNS', 
           serverId: '', 
-          sshUserId: '', 
-          sshUserInputMode: 'select',
-          sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
+          alarmDaysBefore: 30,
+          manager: {
+            name: '',
+            email: '',
+            phone: ''
+          },
           deployImmediately: false 
         });
         
@@ -706,7 +671,7 @@ export default function App() {
     }
   };
 
-  const confirmAddAndDeploy = async (certificateId, serverId, sshUserId, sshUserInput) => {
+  const confirmAddAndDeploy = async (certificateId, serverId) => {
     try {
       // 1. 인증서 생성 중
       setRenewProgress({ step: 1, message: '인증서 생성 중...', error: null, type: 'add' });
@@ -723,9 +688,7 @@ export default function App() {
             domain: '', 
             challengeType: 'DNS', 
             serverId: '', 
-            sshUserId: '', 
-            sshUserInputMode: 'select',
-            sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
+            alarmDaysBefore: 30,
             deployImmediately: false 
           });
         }, 3000);
@@ -747,9 +710,7 @@ export default function App() {
             domain: '', 
             challengeType: 'DNS', 
             serverId: '', 
-            sshUserId: '', 
-            sshUserInputMode: 'select',
-            sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
+            alarmDaysBefore: 30,
             deployImmediately: false 
           });
         }, 3000);
@@ -771,9 +732,7 @@ export default function App() {
             domain: '', 
             challengeType: 'DNS', 
             serverId: '', 
-            sshUserId: '', 
-            sshUserInputMode: 'select',
-            sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
+            alarmDaysBefore: 30,
             deployImmediately: false 
           });
         }, 3000);
@@ -834,8 +793,6 @@ export default function App() {
             ? { 
                 ...cert, 
                 serverId: pendingDeployData.serverId,
-                sshUserId: pendingDeployData.sshUserId || cert.sshUserId,
-                sshUserInput: pendingDeployData.sshUserInput || cert.sshUserInput || null
               }
             : cert
         ));
@@ -876,7 +833,6 @@ export default function App() {
       const newServer = {
         id: Date.now(),
         ...serverData,
-        sshUsers: []
       };
       
       setServers(prev => [...prev, newServer]);
@@ -911,66 +867,6 @@ export default function App() {
     }
   };
 
-  // SSH 유저 관리 핸들러 (독립적인 관리)
-  const handleAddSshUser = async (sshUserData) => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newSshUser = {
-        id: Date.now(),
-        username: sshUserData.username,
-        description: sshUserData.description || '',
-        hasPassword: !!sshUserData.password,
-        hasPrivateKey: !!sshUserData.privateKey
-      };
-      
-      setSshUsers(prev => [...prev, newSshUser]);
-      
-      alert("SSH 유저가 성공적으로 추가되었습니다!");
-    } catch (err) {
-      console.error('SSH 유저 추가 실패:', err);
-      alert(`SSH 유저 추가에 실패했습니다: ${err.message}`);
-    }
-  };
-
-  const handleUpdateSshUser = async (sshUserData) => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const oldSshUser = sshUsers.find(u => u.id === sshUserData.id);
-      
-      // SSH 유저 업데이트
-      const updatedSshUser = {
-        ...sshUserData,
-        hasPassword: sshUserData.password ? true : (oldSshUser?.hasPassword || false),
-        hasPrivateKey: sshUserData.privateKey ? true : (oldSshUser?.hasPrivateKey || false)
-      };
-      
-      setSshUsers(prev => prev.map(u => u.id === sshUserData.id ? updatedSshUser : u));
-      
-      alert("SSH 유저가 성공적으로 수정되었습니다!");
-    } catch (err) {
-      console.error('SSH 유저 수정 실패:', err);
-      alert(`SSH 유저 수정에 실패했습니다: ${err.message}`);
-    }
-  };
-
-  const handleDeleteSshUser = async (sshUserId) => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setSshUsers(prev => prev.filter(u => u.id !== sshUserId));
-      alert("SSH 유저가 성공적으로 삭제되었습니다!");
-    } catch (err) {
-      console.error('SSH 유저 삭제 실패:', err);
-      alert(`SSH 유저 삭제에 실패했습니다: ${err.message}`);
-    }
-  };
-
-
-  // 선택된 서버에 사용 가능한 SSH 유저 목록 가져오기
-  const getAvailableSshUsers = () => {
-    // 모든 SSH 유저 반환 (서버에 할당 개념 제거)
-    return sshUsers || [];
-  };
 
   return (
     <div className="app-container">
@@ -998,13 +894,6 @@ export default function App() {
               >
                 <ServerIcon style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
                 서버 관리
-              </button>
-              <button 
-                onClick={() => setActiveTab('ssh-users')}
-                className={`btn ${activeTab === 'ssh-users' ? 'btn-primary' : 'btn-outline'}`}
-              >
-                <Users style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
-                SSH 유저 관리
               </button>
               <button 
                 onClick={() => {
@@ -1087,19 +976,12 @@ export default function App() {
           </div>
         )}
           </>
-        ) : activeTab === 'servers' ? (
+        ) : activeTab === 'servers' && (
           <ServerManagement
             servers={servers}
             onAddServer={handleAddServer}
             onUpdateServer={handleUpdateServer}
             onDeleteServer={handleDeleteServer}
-          />
-        ) : (
-          <SshUserManagement
-            sshUsers={sshUsers}
-            onAddSshUser={handleAddSshUser}
-            onUpdateSshUser={handleUpdateSshUser}
-            onDeleteSshUser={handleDeleteSshUser}
           />
         )}
       </main>
@@ -1111,16 +993,29 @@ export default function App() {
         const needsServerSetup = !hasServer;
         
         return (
-          <div className="dialog-overlay" onClick={() => {
-            setRenewDialogOpen(false);
-            setRenewFormData({ 
-        serverId: '', 
-        sshUserId: '', 
-        sshUserInputMode: 'select',
-        sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
-        deployImmediately: false 
-      });
-          }}>
+          <div 
+            className="dialog-overlay" 
+            onMouseDown={(e) => {
+              // 다이얼로그 내부에서 마우스 다운이 시작되었는지 확인
+              if (e.target === e.currentTarget) {
+                setMouseDownTarget(e.target);
+              } else {
+                setMouseDownTarget(null);
+              }
+            }}
+            onClick={(e) => {
+              // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
+              // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
+              if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+                setRenewDialogOpen(false);
+                setRenewFormData({ 
+                  serverId: '', 
+                  deployImmediately: false 
+                });
+              }
+              setMouseDownTarget(null);
+            }}
+          >
             <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
               <div className="dialog-header">
                 <div>
@@ -1146,10 +1041,7 @@ export default function App() {
                         onChange={(e) => {
                           setRenewFormData(prev => ({ 
                             ...prev, 
-                            serverId: e.target.value,
-                            sshUserId: '',
-                            sshUserInputMode: 'select',
-                            sshUserInputData: { username: '', password: '', privateKey: '', description: '' }
+                            serverId: e.target.value
                           }));
                         }}
                         disabled={servers.length === 0}
@@ -1168,130 +1060,221 @@ export default function App() {
                       )}
                     </div>
 
-                      {renewFormData.serverId && (
-                        <div className="form-group">
-                          <label className="form-label">SSH 유저 설정</label>
-                          <div style={{ marginBottom: '1rem' }}>
-                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                <input
-                                  type="radio"
-                                  name="renewSshUserMode"
-                                  checked={renewFormData.sshUserInputMode === 'select'}
-                                  onChange={() => setRenewFormData(prev => ({ 
-                                    ...prev, 
-                                    sshUserInputMode: 'select',
-                                    sshUserId: '',
-                                    sshUserInputData: { username: '', password: '', privateKey: '', description: '' }
-                                  }))}
-                                  style={{ accentColor: '#FF6600' }}
-                                />
-                                <span>SSH 유저 불러오기</span>
-                              </label>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                <input
-                                  type="radio"
-                                  name="renewSshUserMode"
-                                  checked={renewFormData.sshUserInputMode === 'input'}
-                                  onChange={() => setRenewFormData(prev => ({ 
-                                    ...prev, 
-                                    sshUserInputMode: 'input',
-                                    sshUserId: '',
-                                    sshUserInputData: { username: '', password: '', privateKey: '', description: '' }
-                                  }))}
-                                  style={{ accentColor: '#FF6600' }}
-                                />
-                                <span>SSH 정보 직접 입력</span>
-                              </label>
-                            </div>
-
-                            {renewFormData.sshUserInputMode === 'select' ? (
-                              (sshUsers || []).length > 0 ? (
-                                <select 
-                                  className="form-select"
-                                  value={renewFormData.sshUserId}
-                                  onChange={(e) => setRenewFormData(prev => ({ ...prev, sshUserId: e.target.value }))}
-                                >
-                                  <option value="">SSH 유저를 선택하세요</option>
-                                  {sshUsers.map(sshUser => (
-                                    <option key={sshUser.id} value={sshUser.id}>
-                                      {sshUser.username}
-                                      {sshUser.description && ` - ${sshUser.description}`}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <div style={{ 
-                                  padding: '0.75rem', 
-                                  backgroundColor: '#fef3c7', 
-                                  border: '1px solid #fbbf24',
-                                  borderRadius: '0.375rem'
-                                }}>
-                                  <small style={{ color: '#92400e', fontSize: '0.875rem' }}>
-                                    등록된 SSH 유저가 없습니다. 직접 입력 모드를 사용하거나 SSH 유저 관리 탭에서 새로운 SSH 유저를 추가해주세요.
-                                  </small>
-                                </div>
-                              )
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div>
-                                  <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                                    SSH 사용자명 <span style={{ color: 'red' }}>*</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    className="form-input"
-                                    value={renewFormData.sshUserInputData.username}
-                                    onChange={(e) => setRenewFormData(prev => ({
-                                      ...prev,
-                                      sshUserInputData: { ...prev.sshUserInputData, username: e.target.value }
-                                    }))}
-                                    placeholder="예: root, ubuntu, admin"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                                    비밀번호
-                                  </label>
-                                  <input
-                                    type="password"
-                                    className="form-input"
-                                    value={renewFormData.sshUserInputData.password}
-                                    onChange={(e) => setRenewFormData(prev => ({
-                                      ...prev,
-                                      sshUserInputData: { ...prev.sshUserInputData, password: e.target.value }
-                                    }))}
-                                    placeholder="비밀번호 인증 사용 시"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                                    개인키 (Private Key)
-                                  </label>
-                                  <textarea
-                                    className="form-input"
-                                    value={renewFormData.sshUserInputData.privateKey}
-                                    onChange={(e) => setRenewFormData(prev => ({
-                                      ...prev,
-                                      sshUserInputData: { ...prev.sshUserInputData, privateKey: e.target.value }
-                                    }))}
-                                    placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-                                    rows="4"
-                                  />
-                                  <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                                    비밀번호 또는 개인키 중 하나를 입력하세요
-                                  </small>
-                                </div>
+                      {renewFormData.serverId && (() => {
+                        const selectedServer = servers.find(s => String(s.id) === String(renewFormData.serverId));
+                        const isEditingSsh = sshEditMode && sshEditServerId === renewFormData.serverId;
+                        
+                        return selectedServer && (
+                          <div className="form-group">
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              border: '1px solid #f97316',
+                              borderRadius: '0.375rem',
+                              marginBottom: '1rem',
+                              position: 'relative'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <small style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                                  선택한 서버의 SSH 정보
+                                </small>
+                                {!isEditingSsh && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSshEditMode(true);
+                                      setSshEditServerId(renewFormData.serverId);
+                                      setSshEditData({
+                                        sshUsername: selectedServer.sshUsername || '',
+                                        sshPort: selectedServer.sshPort || 22,
+                                        deployPath: selectedServer.deployPath || '',
+                                        sshAuthType: selectedServer.sshAuthType || 'password',
+                                        sshPassword: selectedServer.sshPassword || '',
+                                        sshPrivateKey: selectedServer.sshPrivateKey || ''
+                                      });
+                                    }}
+                                    style={{
+                                      padding: '0.25rem 0.5rem',
+                                      fontSize: '0.75rem',
+                                      backgroundColor: '#f97316',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '0.25rem',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    수정하기
+                                  </button>
+                                )}
                               </div>
-                            )}
+                              {isEditingSsh ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>SSH 사용자명</label>
+                                    <input
+                                      type="text"
+                                      className="form-input"
+                                      value={sshEditData.sshUsername}
+                                      onChange={(e) => setSshEditData(prev => ({ ...prev, sshUsername: e.target.value }))}
+                                      style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                      disabled={isSubmitting}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>SSH 포트</label>
+                                    <input
+                                      type="number"
+                                      className="form-input"
+                                      value={sshEditData.sshPort}
+                                      onChange={(e) => setSshEditData(prev => ({ ...prev, sshPort: parseInt(e.target.value) || 22 }))}
+                                      style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                      disabled={isSubmitting}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>배포 경로</label>
+                                    <input
+                                      type="text"
+                                      className="form-input"
+                                      value={sshEditData.deployPath}
+                                      onChange={(e) => setSshEditData(prev => ({ ...prev, deployPath: e.target.value }))}
+                                      style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                      disabled={isSubmitting}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>인증 방식</label>
+                                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                        <input
+                                          type="radio"
+                                          name="sshAuthType-renew"
+                                          value="password"
+                                          checked={sshEditData.sshAuthType === 'password'}
+                                          onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
+                                          disabled={isSubmitting}
+                                        />
+                                        비밀번호
+                                      </label>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                        <input
+                                          type="radio"
+                                          name="sshAuthType-renew"
+                                          value="key"
+                                          checked={sshEditData.sshAuthType === 'key'}
+                                          onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
+                                          disabled={isSubmitting}
+                                        />
+                                        KEY 방식
+                                      </label>
+                                    </div>
+                                  </div>
+                                  {sshEditData.sshAuthType === 'password' ? (
+                                    <div>
+                                      <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>비밀번호</label>
+                                      <input
+                                        type="password"
+                                        className="form-input"
+                                        value={sshEditData.sshPassword}
+                                        onChange={(e) => setSshEditData(prev => ({ ...prev, sshPassword: e.target.value }))}
+                                        style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                        disabled={isSubmitting}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>개인키</label>
+                                      <textarea
+                                        className="form-input"
+                                        value={sshEditData.sshPrivateKey}
+                                        onChange={(e) => setSshEditData(prev => ({ ...prev, sshPrivateKey: e.target.value }))}
+                                        style={{ fontSize: '0.875rem', padding: '0.375rem', minHeight: '80px', fontFamily: 'monospace' }}
+                                        disabled={isSubmitting}
+                                      />
+                                    </div>
+                                  )}
+                                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (!sshEditData.sshUsername.trim() || !sshEditData.deployPath.trim()) {
+                                          alert('SSH 사용자명과 배포 경로는 필수 입력 항목입니다.');
+                                          return;
+                                        }
+                                        
+                                        setIsSubmitting(true);
+                                        try {
+                                          await handleUpdateServer({
+                                            ...selectedServer,
+                                            ...sshEditData
+                                          });
+                                          setSshEditMode(false);
+                                          setSshEditServerId(null);
+                                        } catch (err) {
+                                          console.error('SSH 정보 수정 실패:', err);
+                                        } finally {
+                                          setIsSubmitting(false);
+                                        }
+                                      }}
+                                      disabled={isSubmitting}
+                                      style={{
+                                        padding: '0.375rem 0.75rem',
+                                        fontSize: '0.75rem',
+                                        backgroundColor: '#f97316',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '0.25rem',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      적용
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSshEditMode(false);
+                                        setSshEditServerId(null);
+                                        setSshEditData({
+                                          sshUsername: '',
+                                          sshPort: 22,
+                                          deployPath: '',
+                                          sshAuthType: 'password',
+                                          sshPassword: '',
+                                          sshPrivateKey: ''
+                                        });
+                                      }}
+                                      disabled={isSubmitting}
+                                      style={{
+                                        padding: '0.375rem 0.75rem',
+                                        fontSize: '0.75rem',
+                                        backgroundColor: 'white',
+                                        color: '#f97316',
+                                        border: '1px solid #f97316',
+                                        borderRadius: '0.25rem',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      취소
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.875rem' }}>
+                                  <div>서버 타입: {selectedServer.serverType || '미설정'}</div>
+                                  <div>SSH 사용자명: {selectedServer.sshUsername || '미설정'}</div>
+                                  <div>SSH 포트: {selectedServer.sshPort || 22}</div>
+                                  <div>배포 경로: {selectedServer.deployPath || '미설정'}</div>
+                                  <div>인증 방식: {selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</div>
+                                </div>
+                              )}
+                              {(!selectedServer.sshUsername || !selectedServer.deployPath) && !isEditingSsh && (
+                                <small style={{ color: '#dc2626', fontSize: '0.75rem', display: 'block', marginTop: '0.5rem' }}>
+                                  서버에 SSH 정보가 설정되지 않았습니다. 서버 관리에서 SSH 정보를 설정해주세요.
+                                </small>
+                              )}
+                            </div>
                           </div>
-                          {renewFormData.sshUserInputMode === 'select' && (
-                            <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                              SSH 유저 관리 탭에서 유저를 추가하거나 수정할 수 있습니다.
-                            </small>
-                          )}
-                        </div>
-                      )}
+                        );
+                      })()}
                   </div>
                 </div>
               )}
@@ -1303,9 +1286,6 @@ export default function App() {
                     setRenewDialogOpen(false);
                     setRenewFormData({ 
         serverId: '', 
-        sshUserId: '', 
-        sshUserInputMode: 'select',
-        sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
         deployImmediately: false 
       });
                   }}
@@ -1315,7 +1295,6 @@ export default function App() {
                 <button 
                   className="btn btn-primary" 
                   onClick={confirmRenew}
-                  disabled={needsServerSetup && !renewFormData.serverId}
                 >
                   갱신하기
                 </button>
@@ -1327,7 +1306,25 @@ export default function App() {
 
       {/* 추가 다이얼로그 */}
       {addDialogOpen && (
-        <div className="dialog-overlay" onClick={() => setAddDialogOpen(false)}>
+        <div 
+          className="dialog-overlay" 
+          onMouseDown={(e) => {
+            // 다이얼로그 내부에서 마우스 다운이 시작되었는지 확인
+            if (e.target === e.currentTarget) {
+              setMouseDownTarget(e.target);
+            } else {
+              setMouseDownTarget(null);
+            }
+          }}
+          onClick={(e) => {
+            // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
+            // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
+            if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+              setAddDialogOpen(false);
+            }
+            setMouseDownTarget(null);
+          }}
+        >
           <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <div>
@@ -1367,6 +1364,25 @@ export default function App() {
                   현재 DNS-01 챌린지 타입만 지원합니다.
                 </small>
               </div>
+
+              <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    담당자 이름 <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={addFormData.managerName}
+                    onChange={(e) => setAddFormData(prev => ({
+                      ...prev,
+                      managerName: e.target.value
+                    }))}
+                    placeholder="담당자 이름을 입력하세요"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
               
               <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>서버 배포 설정</h3>
@@ -1379,10 +1395,7 @@ export default function App() {
                     onChange={(e) => {
                       setAddFormData(prev => ({ 
                         ...prev, 
-                        serverId: e.target.value,
-                        sshUserId: '',
-                        sshUserInputMode: 'select',
-                        sshUserInputData: { username: '', password: '', privateKey: '', description: '' }
+                        serverId: e.target.value
                       }));
                     }}
                     disabled={isSubmitting || servers.length === 0}
@@ -1401,156 +1414,282 @@ export default function App() {
                   )}
                 </div>
 
-                {addFormData.serverId && (
-                  <div className="form-group">
-                    <label className="form-label">SSH 유저 설정</label>
-                    <div style={{ marginBottom: '1rem' }}>
-                      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="sshUserMode"
-                            checked={addFormData.sshUserInputMode === 'select'}
-                            onChange={() => setAddFormData(prev => ({ 
-                              ...prev, 
-                              sshUserInputMode: 'select',
-                              sshUserId: '',
-                              sshUserInputData: { username: '', password: '', privateKey: '', description: '' }
-                            }))}
-                            disabled={isSubmitting}
-                            style={{ accentColor: '#FF6600' }}
-                          />
-                          <span>SSH 유저 불러오기</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="sshUserMode"
-                            checked={addFormData.sshUserInputMode === 'input'}
-                            onChange={() => setAddFormData(prev => ({ 
-                              ...prev, 
-                              sshUserInputMode: 'input',
-                              sshUserId: '',
-                              sshUserInputData: { username: '', password: '', privateKey: '', description: '' }
-                            }))}
-                            disabled={isSubmitting}
-                            style={{ accentColor: '#FF6600' }}
-                          />
-                          <span>SSH 정보 직접 입력</span>
-                        </label>
-                      </div>
-
-                      {addFormData.sshUserInputMode === 'select' ? (
-                        getAvailableSshUsers().length > 0 ? (
-                          <select 
-                            className="form-select"
-                            value={addFormData.sshUserId}
-                            onChange={(e) => setAddFormData(prev => ({ ...prev, sshUserId: e.target.value }))}
-                            disabled={isSubmitting}
-                          >
-                            <option value="">SSH 유저를 선택하세요</option>
-                            {getAvailableSshUsers().map(sshUser => (
-                              <option key={sshUser.id} value={sshUser.id}>
-                                {sshUser.username}
-                                {sshUser.description && ` - ${sshUser.description}`}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div style={{ 
-                            padding: '0.75rem', 
-                            backgroundColor: '#fef3c7', 
-                            border: '1px solid #fbbf24',
-                            borderRadius: '0.375rem'
-                          }}>
-                            <small style={{ color: '#92400e', fontSize: '0.875rem' }}>
-                              등록된 SSH 유저가 없습니다. 직접 입력 모드를 사용하거나 SSH 유저 관리 탭에서 새로운 SSH 유저를 추가해주세요.
-                            </small>
-                          </div>
-                        )
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                              SSH 사용자명 <span style={{ color: 'red' }}>*</span>
-                            </label>
-                            <input
-                              type="text"
-                              className="form-input"
-                              value={addFormData.sshUserInputData.username}
-                              onChange={(e) => setAddFormData(prev => ({
-                                ...prev,
-                                sshUserInputData: { ...prev.sshUserInputData, username: e.target.value }
-                              }))}
-                              placeholder="예: root, ubuntu, admin"
-                              disabled={isSubmitting}
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                              비밀번호
-                            </label>
-                            <input
-                              type="password"
-                              className="form-input"
-                              value={addFormData.sshUserInputData.password}
-                              onChange={(e) => setAddFormData(prev => ({
-                                ...prev,
-                                sshUserInputData: { ...prev.sshUserInputData, password: e.target.value }
-                              }))}
-                              placeholder="비밀번호 인증 사용 시"
-                              disabled={isSubmitting}
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                              개인키 (Private Key)
-                            </label>
-                            <textarea
-                              className="form-input"
-                              value={addFormData.sshUserInputData.privateKey}
-                              onChange={(e) => setAddFormData(prev => ({
-                                ...prev,
-                                sshUserInputData: { ...prev.sshUserInputData, privateKey: e.target.value }
-                              }))}
-                              placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-                              rows="4"
-                              disabled={isSubmitting}
-                            />
-                            <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                              비밀번호 또는 개인키 중 하나를 입력하세요
-                            </small>
-                          </div>
+                {addFormData.serverId && (() => {
+                  const selectedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
+                  const isEditingSsh = sshEditMode && sshEditServerId === addFormData.serverId;
+                  
+                  return selectedServer && (
+                    <div className="form-group">
+                      <div style={{ 
+                        padding: '0.75rem', 
+                        border: '1px solid #fed7aa',
+                        borderRadius: '0.375rem',
+                        marginBottom: '1rem',
+                        position: 'relative'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <small style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                            선택한 서버의 SSH 정보
+                          </small>
+                          {!isEditingSsh && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSshEditMode(true);
+                                setSshEditServerId(addFormData.serverId);
+                                setSshEditData({
+                                  sshUsername: selectedServer.sshUsername || '',
+                                  sshPort: selectedServer.sshPort || 22,
+                                  deployPath: selectedServer.deployPath || '',
+                                  sshAuthType: selectedServer.sshAuthType || 'password',
+                                  sshPassword: selectedServer.sshPassword || '',
+                                  sshPrivateKey: selectedServer.sshPrivateKey || ''
+                                });
+                              }}
+                              style={{
+                                padding: '0.25rem 0.5rem',
+                                fontSize: '0.75rem',
+                                backgroundColor: '#f97316',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '0.25rem',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              수정하기
+                            </button>
+                          )}
                         </div>
-                      )}
+                        {isEditingSsh ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>SSH 사용자명</label>
+                              <input
+                                type="text"
+                                className="form-input"
+                                value={sshEditData.sshUsername}
+                                onChange={(e) => setSshEditData(prev => ({ ...prev, sshUsername: e.target.value }))}
+                                style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                disabled={isSubmitting}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>SSH 포트</label>
+                              <input
+                                type="number"
+                                className="form-input"
+                                value={sshEditData.sshPort}
+                                onChange={(e) => setSshEditData(prev => ({ ...prev, sshPort: parseInt(e.target.value) || 22 }))}
+                                style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                disabled={isSubmitting}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>배포 경로</label>
+                              <input
+                                type="text"
+                                className="form-input"
+                                value={sshEditData.deployPath}
+                                onChange={(e) => setSshEditData(prev => ({ ...prev, deployPath: e.target.value }))}
+                                style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                disabled={isSubmitting}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>인증 방식</label>
+                              <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                  <input
+                                    type="radio"
+                                    name="sshAuthType"
+                                    value="password"
+                                    checked={sshEditData.sshAuthType === 'password'}
+                                    onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
+                                    disabled={isSubmitting}
+                                  />
+                                  비밀번호
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                  <input
+                                    type="radio"
+                                    name="sshAuthType"
+                                    value="key"
+                                    checked={sshEditData.sshAuthType === 'key'}
+                                    onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
+                                    disabled={isSubmitting}
+                                  />
+                                  KEY 방식
+                                </label>
+                              </div>
+                            </div>
+                            {sshEditData.sshAuthType === 'password' ? (
+                              <div>
+                                <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>비밀번호</label>
+                                <input
+                                  type="password"
+                                  className="form-input"
+                                  value={sshEditData.sshPassword}
+                                  onChange={(e) => setSshEditData(prev => ({ ...prev, sshPassword: e.target.value }))}
+                                  style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                            ) : (
+                              <div>
+                                <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>개인키</label>
+                                <textarea
+                                  className="form-input"
+                                  value={sshEditData.sshPrivateKey}
+                                  onChange={(e) => setSshEditData(prev => ({ ...prev, sshPrivateKey: e.target.value }))}
+                                  style={{ fontSize: '0.875rem', padding: '0.375rem', minHeight: '80px', fontFamily: 'monospace' }}
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!sshEditData.sshUsername.trim() || !sshEditData.deployPath.trim()) {
+                                    alert('SSH 사용자명과 배포 경로는 필수 입력 항목입니다.');
+                                    return;
+                                  }
+                                  
+                                  setIsSubmitting(true);
+                                  try {
+                                    await handleUpdateServer({
+                                      ...selectedServer,
+                                      ...sshEditData
+                                    });
+                                    setSshEditMode(false);
+                                    setSshEditServerId(null);
+                                    // 서버 목록 업데이트 후 다시 로드
+                                    const updatedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
+                                    if (updatedServer) {
+                                      setAddFormData(prev => ({ ...prev, serverId: prev.serverId }));
+                                    }
+                                  } catch (err) {
+                                    console.error('SSH 정보 수정 실패:', err);
+                                  } finally {
+                                    setIsSubmitting(false);
+                                  }
+                                }}
+                                disabled={isSubmitting}
+                                style={{
+                                  padding: '0.375rem 0.75rem',
+                                  fontSize: '0.75rem',
+                                  backgroundColor: '#f97316',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '0.25rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                적용
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSshEditMode(false);
+                                  setSshEditServerId(null);
+                                  setSshEditData({
+                                    sshUsername: '',
+                                    sshPort: 22,
+                                    deployPath: '',
+                                    sshAuthType: 'password',
+                                    sshPassword: '',
+                                    sshPrivateKey: ''
+                                  });
+                                }}
+                                disabled={isSubmitting}
+                                style={{
+                                  padding: '0.375rem 0.75rem',
+                                  fontSize: '0.75rem',
+                                  backgroundColor: 'white',
+                                  color: '#f97316',
+                                  border: '1px solid #f97316',
+                                  borderRadius: '0.25rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.875rem' }}>
+                            <div>서버 타입: {selectedServer.serverType || '미설정'}</div>
+                            <div>SSH 사용자명: {selectedServer.sshUsername || '미설정'}</div>
+                            <div>SSH 포트: {selectedServer.sshPort || 22}</div>
+                            <div>배포 경로: {selectedServer.deployPath || '미설정'}</div>
+                            <div>인증 방식: {selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</div>
+                          </div>
+                        )}
+                        {(!selectedServer.sshUsername || !selectedServer.deployPath) && !isEditingSsh && (
+                          <small style={{ color: '#dc2626', fontSize: '0.75rem', display: 'block', marginTop: '0.5rem' }}>
+                            서버에 SSH 정보가 설정되지 않았습니다. 서버 관리에서 SSH 정보를 설정해주세요.
+                          </small>
+                        )}
+                      </div>
                     </div>
-                    {addFormData.sshUserInputMode === 'select' && (
-                      <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                        SSH 유저 관리 탭에서 유저를 추가하거나 수정할 수 있습니다.
-                      </small>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
 
-                {addFormData.serverId && (
-                  (addFormData.sshUserInputMode === 'select' && addFormData.sshUserId) ||
-                  (addFormData.sshUserInputMode === 'input' && addFormData.sshUserInputData.username && (addFormData.sshUserInputData.password || addFormData.sshUserInputData.privateKey))
-                ) && (
-                  <div className="form-group">
-                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={addFormData.deployImmediately}
-                        onChange={(e) => setAddFormData(prev => ({ ...prev, deployImmediately: e.target.checked }))}
-                        disabled={isSubmitting}
-                      />
-                      서버에 바로 적용하시겠습니까?
-                    </label>
-                    <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block', marginLeft: '1.5rem' }}>
-                      체크 시 인증서 생성 후 즉시 서버에 배포하고 재기동합니다.
-                    </small>
-                  </div>
-                )}
+                <div className="form-group">
+                  <label className="form-label">
+                    만료 전 알람 발송 일자 <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={addFormData.alarmDaysBefore === null || addFormData.alarmDaysBefore === undefined ? '' : addFormData.alarmDaysBefore}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setAddFormData(prev => ({ ...prev, alarmDaysBefore: value === '' ? null : parseInt(value) || null }));
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value === '' || isNaN(parseInt(value)) || parseInt(value) < 1) {
+                        setAddFormData(prev => ({ ...prev, alarmDaysBefore: 30 }));
+                      } else {
+                        const numValue = parseInt(value);
+                        if (numValue > 365) {
+                          setAddFormData(prev => ({ ...prev, alarmDaysBefore: 365 }));
+                        } else if (numValue < 1) {
+                          setAddFormData(prev => ({ ...prev, alarmDaysBefore: 30 }));
+                        }
+                      }
+                    }}
+                    placeholder="30"
+                    min="1"
+                    max="365"
+                    disabled={isSubmitting}
+                  />
+                  <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                    인증서 만료 전 며칠 전에 알람을 발송할지 설정합니다. (기본값: 30일)
+                  </small>
+                </div>
+
+                {addFormData.serverId && (() => {
+                  const selectedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
+                  const hasSshInfo = selectedServer && selectedServer.sshUsername && selectedServer.deployPath;
+                  return hasSshInfo && (
+                    <div className="form-group">
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={addFormData.deployImmediately}
+                          onChange={(e) => setAddFormData(prev => ({ ...prev, deployImmediately: e.target.checked }))}
+                          disabled={isSubmitting}
+                        />
+                        서버에 바로 적용하시겠습니까?
+                      </label>
+                      <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block', marginLeft: '1.5rem' }}>
+                        체크 시 인증서 생성 후 즉시 서버에 배포하고 재기동합니다.
+                      </small>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="dialog-footer">
@@ -1558,7 +1697,14 @@ export default function App() {
                 className="btn btn-outline" 
                 onClick={() => {
                   setAddDialogOpen(false);
-                  setAddFormData({ domain: '', challengeType: 'DNS', serverId: '', sshUserId: '', deployImmediately: false });
+                  setAddFormData({ 
+                    domain: '', 
+                    challengeType: 'DNS', 
+                    serverId: '', 
+                    alarmDaysBefore: 30,
+                    managerName: '',
+                    deployImmediately: false 
+                  });
                 }}
                 disabled={isSubmitting}
               >
@@ -1567,7 +1713,7 @@ export default function App() {
               <button 
                 className="btn btn-primary" 
                 onClick={handleAddCertificate}
-                disabled={isSubmitting || !addFormData.domain.trim()}
+                disabled={isSubmitting || !addFormData.domain.trim() || !addFormData.managerName.trim()}
               >
                 {isSubmitting ? '추가 중...' : '추가하기'}
               </button>
@@ -1664,9 +1810,7 @@ export default function App() {
                           domain: '', 
                           challengeType: 'DNS', 
                           serverId: '', 
-                          sshUserId: '', 
-                          sshUserInputMode: 'select',
-                          sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
+                          alarmDaysBefore: 30,
                           deployImmediately: false 
                         });
                       } else {
@@ -1674,9 +1818,6 @@ export default function App() {
                         setSelectedCertId(null);
                         setRenewFormData({ 
                           serverId: '', 
-                          sshUserId: '', 
-                          sshUserInputMode: 'select',
-                          sshUserInputData: { username: '', password: '', privateKey: '', description: '' },
                           deployImmediately: false 
                         });
                       }
@@ -1915,7 +2056,25 @@ export default function App() {
 
       {/* 배포 확인 다이얼로그 */}
       {deployConfirmDialogOpen && pendingDeployData && (
-        <div className="dialog-overlay" onClick={() => setDeployConfirmDialogOpen(false)}>
+        <div 
+          className="dialog-overlay" 
+          onMouseDown={(e) => {
+            // 다이얼로그 내부에서 마우스 다운이 시작되었는지 확인
+            if (e.target === e.currentTarget) {
+              setMouseDownTarget(e.target);
+            } else {
+              setMouseDownTarget(null);
+            }
+          }}
+          onClick={(e) => {
+            // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
+            // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
+            if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+              setDeployConfirmDialogOpen(false);
+            }
+            setMouseDownTarget(null);
+          }}
+        >
           <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <div>
@@ -1979,7 +2138,25 @@ export default function App() {
 
       {/* 상세보기 다이얼로그 */}
       {detailDialogOpen && selectedCertificate && (
-        <div className="dialog-overlay" onClick={() => setDetailDialogOpen(false)}>
+        <div 
+          className="dialog-overlay" 
+          onMouseDown={(e) => {
+            // 다이얼로그 내부에서 마우스 다운이 시작되었는지 확인
+            if (e.target === e.currentTarget) {
+              setMouseDownTarget(e.target);
+            } else {
+              setMouseDownTarget(null);
+            }
+          }}
+          onClick={(e) => {
+            // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
+            // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
+            if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+              setDetailDialogOpen(false);
+            }
+            setMouseDownTarget(null);
+          }}
+        >
           <div className="dialog-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="dialog-header">
               <div>
@@ -2035,6 +2212,33 @@ export default function App() {
                     </tr>
                   </tbody>
                 </table>
+              </div>
+
+              {/* 담당자 정보 테이블 */}
+              <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', margin: 0, marginBottom: '1rem' }}>담당자 정보</h3>
+                {selectedCertificate.managerName ? (
+                  <table className="certificate-detail-table">
+                    <tbody>
+                      <tr>
+                        <th>담당자 이름</th>
+                        <td>{selectedCertificate.managerName}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{
+                    padding: '1.5rem',
+                    textAlign: 'center',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '0.5rem',
+                    border: '1px dashed #e5e7eb'
+                  }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
+                      담당자 정보가 없습니다.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 서버 정보 테이블 */}
@@ -2123,8 +2327,8 @@ export default function App() {
               {/* SSH 유저 정보 테이블 */}
               <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', margin: 0 }}>갱신 시 사용한 SSH 유저</h3>
-                  {!selectedCertificate.sshUserId && !selectedCertificate.sshUserInput && (
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', margin: 0 }}>배포된 서버 정보</h3>
+                  {!selectedCertificate.serverId && (
                     <span style={{ 
                       display: 'inline-flex', 
                       alignItems: 'center', 
@@ -2137,24 +2341,32 @@ export default function App() {
                       fontWeight: 500
                     }}>
                       <AlertCircle size={12} />
-                      SSH 유저 미설정
+                      서버 미설정
                     </span>
                   )}
                 </div>
-                {selectedCertificate.sshUserId ? (
+                {selectedCertificate.serverId ? (
                   (() => {
-                    const usedSshUser = sshUsers.find(u => String(u.id) === String(selectedCertificate.sshUserId));
-                    if (usedSshUser) {
+                    const usedServer = servers.find(s => String(s.id) === String(selectedCertificate.serverId));
+                    if (usedServer) {
                       return (
                         <table className="certificate-detail-table">
                           <tbody>
                             <tr>
-                              <th>SSH 사용자명</th>
-                              <td>{usedSshUser.username}</td>
+                              <th>서버 타입</th>
+                              <td>{usedServer.serverType || 'N/A'}</td>
                             </tr>
                             <tr>
-                              <th>설명</th>
-                              <td>{usedSshUser.description || 'N/A'}</td>
+                              <th>SSH 사용자명</th>
+                              <td>{usedServer.sshUsername || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                              <th>SSH 포트</th>
+                              <td>{usedServer.sshPort || 22}</td>
+                            </tr>
+                            <tr>
+                              <th>배포 경로</th>
+                              <td>{usedServer.deployPath || 'N/A'}</td>
                             </tr>
                             <tr>
                               <th>인증 방식</th>
@@ -2164,13 +2376,13 @@ export default function App() {
                                   alignItems: 'center',
                                   gap: '0.25rem',
                                   padding: '0.25rem 0.5rem',
-                                  backgroundColor: usedSshUser.privateKey ? '#fef3c7' : '#dbeafe',
-                                  color: usedSshUser.privateKey ? '#92400e' : '#1e40af',
+                                  backgroundColor: usedServer.sshAuthType === 'key' ? '#fef3c7' : '#dbeafe',
+                                  color: usedServer.sshAuthType === 'key' ? '#92400e' : '#1e40af',
                                   borderRadius: '0.375rem',
                                   fontSize: '0.875rem',
                                   fontWeight: 500
                                 }}>
-                                  {usedSshUser.privateKey ? '🔑 키 인증' : '🔒 비밀번호 인증'}
+                                  {usedServer.sshAuthType === 'key' ? '🔑 키 인증' : '🔒 비밀번호 인증'}
                                 </span>
                               </td>
                             </tr>
