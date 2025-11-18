@@ -1,9 +1,9 @@
 // API 베이스 URL 설정
-// 테스트 모드: 실제 API 호출 (프로덕션 서버)
-// 개발 모드: 더미 데이터 사용 (API 호출 안 함)
-const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === 'true' || import.meta.env.MODE === 'test';
+// 개발 모드(npm run dev): 더미 데이터 사용
+// 테스트 모드(npm run test) 및 프로덕션: 실제 API 호출
+const IS_DEV_MODE = import.meta.env.DEV === true;
 
-// 테스트 모드와 개발 모드 모두 프로덕션 서버 사용 (테스트 모드에서만 실제 API 호출)
+// 모든 모드에서 프로덕션 서버 사용
 const API_BASE_URL = 'https://auto-cert-backend-production.up.railway.app';
 
 // 디버깅용 (개발 시에만 콘솔 출력)
@@ -11,8 +11,7 @@ if (import.meta.env.DEV) {
   console.log('API Mode:', {
     MODE: import.meta.env.MODE,
     DEV: import.meta.env.DEV,
-    VITE_TEST_MODE: import.meta.env.VITE_TEST_MODE,
-    IS_TEST_MODE: IS_TEST_MODE,
+    IS_DEV_MODE: IS_DEV_MODE,
     API_BASE_URL: API_BASE_URL
   });
 }
@@ -61,8 +60,8 @@ async function handleResponse(response) {
  * @returns {Promise<Object>} 인증서 목록 및 페이지네이션 정보 (PageResponse 형식)
  */
 export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DESC']) {
-  // 테스트 모드에서만 실제 API 호출
-  if (IS_TEST_MODE) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
     const params = new URLSearchParams({
       page: page.toString(),
       size: size.toString()
@@ -150,8 +149,8 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
  * @returns {Promise<Object>} 인증서 상세 정보 (CertificateResponse 형식)
  */
 export async function getCertificate(id) {
-  // 테스트 모드에서만 실제 API 호출
-  if (IS_TEST_MODE) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`);
       return handleResponse(response);
@@ -184,8 +183,8 @@ export async function getCertificate(id) {
  * @returns {Promise<Object>} 생성된 인증서 정보 (CertificateResponse 형식)
  */
 export async function createCertificate(certificateData) {
-  // 테스트 모드에서만 실제 API 호출
-  if (IS_TEST_MODE) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
     // 백엔드 API 형식에 맞게 변환
     const requestBody = {
       domain: certificateData.domain,
@@ -229,8 +228,8 @@ export async function createCertificate(certificateData) {
  * @returns {Promise<Object>} 갱신된 인증서 정보 (CertificateResponse 형식)
  */
 export async function renewCertificate(id) {
-  // 테스트 모드에서만 실제 API 호출
-  if (IS_TEST_MODE) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}/renew`, {
         method: 'POST',
@@ -264,8 +263,8 @@ export async function renewCertificate(id) {
  * @returns {Promise<void>}
  */
 export async function deleteCertificate(id) {
-  // 테스트 모드에서만 실제 API 호출
-  if (IS_TEST_MODE) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`, {
         method: 'DELETE',

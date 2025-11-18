@@ -89,7 +89,7 @@ const initialCertificates = [
 
 export default function App() {
   // 테스트 모드 여부 확인 (로컬 백엔드 사용 여부)
-  const IS_TEST_MODE = import.meta.env.VITE_TEST_MODE === 'true' || import.meta.env.MODE === 'test';
+  const IS_DEV_MODE = import.meta.env.DEV === true;
   
   // 인증서는 API에서 로드하므로 빈 배열로 시작
   const [certificates, setCertificates] = useState([]);
@@ -1798,7 +1798,7 @@ export default function App() {
         <div className="dialog-overlay" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
           <div className="dialog-content progress-dialog" onClick={(e) => e.stopPropagation()}>
             {/* 테스트 버튼 (개발용 - npm run dev일 때만 표시) */}
-            {!IS_TEST_MODE && (
+            {IS_DEV_MODE && (
               <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
               <button
                 className="btn btn-outline"
