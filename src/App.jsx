@@ -3,8 +3,7 @@ import { CertificateCard } from "./components/CertificateCard";
 import { CertificateStats } from "./components/CertificateStats";
 import { ServerManagement } from "./components/ServerManagement";
 import ChatSidebar from "./components/ChatSidebar";
-import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, ExternalLink, AlertCircle, XCircle } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./components/ui/tooltip";
+import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, ExternalLink, AlertCircle, XCircle, Loader2 } from "lucide-react";
 import hanwhaLogo from "./assets/ci_logo_b.png";
 import { 
   getCertificates as getCertificatesAPI,
@@ -140,6 +139,7 @@ export default function App() {
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [httpsTestResult, setHttpsTestResult] = useState(null);
   const [isTestingHttps, setIsTestingHttps] = useState(false);
+  const [isLoadingCertificates, setIsLoadingCertificates] = useState(true);
 
   // 페이지 진입 시 서버 목록 및 인증서 목록 로드
   useEffect(() => {
@@ -154,6 +154,7 @@ export default function App() {
    */
   const loadCertificates = async () => {
     try {
+      setIsLoadingCertificates(true);
       console.log('인증서 목록 조회 시작...');
       const response = await getCertificatesAPI(0, 100);
       
@@ -202,6 +203,8 @@ export default function App() {
     } catch (err) {
       console.error('인증서 목록 조회 실패:', err);
       setCertificates([]);
+    } finally {
+      setIsLoadingCertificates(false);
     }
   };
 
@@ -241,7 +244,7 @@ export default function App() {
     // 기존 서버 정보가 있으면 설정
     if (cert && cert.serverId) {
       setRenewFormData({
-        serverId: cert.serverId,
+        serverId: String(cert.serverId),
         deployImmediately: false
       });
     } else {
@@ -251,6 +254,10 @@ export default function App() {
         deployImmediately: false
       });
     }
+    
+    // SSH 편집 모드 초기화
+    setSshEditMode(false);
+    setSshEditServerId(null);
     
     setRenewDialogOpen(true);
   };
@@ -912,41 +919,23 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      onClick={() => setActiveTab('servers')}
-                      className={`btn ${activeTab === 'servers' ? 'btn-primary' : 'btn-outline'} responsive-icon-button`}
-                    >
-                      <ServerIcon style={{ width: '1rem', height: '1rem' }} className="button-icon" />
-                      <span className="button-text">서버 관리</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>서버 관리</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      onClick={() => {
-                        setActiveTab('certificates');
-                        setAddDialogOpen(true);
-                      }}
-                      className="btn btn-primary responsive-icon-button"
-                    >
-                      <Plus style={{ width: '1rem', height: '1rem' }} className="button-icon" />
-                      <span className="button-text">새 인증서 추가</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>새 인증서 추가</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <button 
+                onClick={() => setActiveTab('servers')}
+                className={`btn ${activeTab === 'servers' ? 'btn-primary' : 'btn-outline'} responsive-icon-button`}
+              >
+                <ServerIcon style={{ width: '1rem', height: '1rem' }} className="button-icon" />
+                <span className="button-text">서버 관리</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setActiveTab('certificates');
+                  setAddDialogOpen(true);
+                }}
+                className="btn btn-primary responsive-icon-button"
+              >
+                <Plus style={{ width: '1rem', height: '1rem' }} className="button-icon" />
+                <span className="button-text">새 인증서 추가</span>
+              </button>
             </div>
           </div>
         </div>
@@ -993,7 +982,12 @@ export default function App() {
         </div>
 
         {/* 인증서 목록 */}
-        {filteredCertificates.length > 0 ? (
+        {isLoadingCertificates ? (
+          <div className="empty-state-full" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+            <Loader2 className="empty-state-icon" style={{ width: '3rem', height: '3rem', color: '#f97316', animation: 'spin 1s linear infinite' }} />
+            <h3 style={{ marginTop: '1rem' }}>인증서 데이터를 불러오는 중...</h3>
+          </div>
+        ) : filteredCertificates.length > 0 ? (
           <div className="certificates-grid">
             {filteredCertificates.map((cert) => {
               const hasServer = cert.serverId !== null && cert.serverId !== undefined;
@@ -1065,17 +1059,21 @@ export default function App() {
                   <p className="dialog-description">
                     {needsServerSetup 
                       ? '배포된 서버 정보가 없습니다. 서버 배포 설정을 선택해주세요.'
-                      : '이 인증서를 갱신하시겠습니까? 갱신 후 새로운 만료일이 설정됩니다.'}
+                      : '이 인증서를 갱신하시겠습니까? 서버 정보를 확인하고 수정할 수 있습니다.'}
                   </p>
                 </div>
               </div>
               
-              {needsServerSetup && (
-                <div className="dialog-body" style={{ paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', marginTop: 0 }}>서버 배포 설정</h3>
-                    
-                    <div className="form-group">
-                      <label className="form-label">서버 선택</label>
+              <div className="dialog-body" style={{ paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', marginTop: 0 }}>서버 배포 설정</h3>
+                  
+                  <div className="form-group">
+                    <label className="form-label">서버 선택</label>
+                    {servers.length === 0 ? (
+                      <small style={{ color: '#dc2626', fontSize: '0.875rem', display: 'block' }}>
+                        등록된 서버가 없습니다. 먼저 서버를 추가해주세요.
+                      </small>
+                    ) : (
                       <select 
                         className="form-select"
                         value={renewFormData.serverId}
@@ -1084,8 +1082,10 @@ export default function App() {
                             ...prev, 
                             serverId: e.target.value
                           }));
+                          // 서버 변경 시 SSH 편집 모드 초기화
+                          setSshEditMode(false);
+                          setSshEditServerId(null);
                         }}
-                        disabled={servers.length === 0}
                       >
                         <option value="">서버를 선택하세요</option>
                         {servers.map(server => (
@@ -1094,12 +1094,8 @@ export default function App() {
                           </option>
                         ))}
                       </select>
-                      {servers.length === 0 && (
-                        <small style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                          등록된 서버가 없습니다. 먼저 서버를 추가해주세요.
-                        </small>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
                       {renewFormData.serverId && (() => {
                         const selectedServer = servers.find(s => String(s.id) === String(renewFormData.serverId));
@@ -1331,8 +1327,7 @@ export default function App() {
                           </div>
                         );
                       })()}
-                </div>
-              )}
+              </div>
               
               <div className="dialog-footer">
                 <button 
@@ -1445,28 +1440,29 @@ export default function App() {
                 
                 <div className="form-group">
                   <label className="form-label">서버 선택</label>
-                  <select 
-                    className="form-select"
-                    value={addFormData.serverId}
-                    onChange={(e) => {
-                      setAddFormData(prev => ({ 
-                        ...prev, 
-                        serverId: e.target.value
-                      }));
-                    }}
-                    disabled={isSubmitting || servers.length === 0}
-                  >
-                    <option value="">서버를 선택하세요</option>
-                    {servers.map(server => (
-                      <option key={server.id} value={server.id}>
-                        {server.name} ({server.host}:{server.port})
-                      </option>
-                    ))}
-                  </select>
-                  {servers.length === 0 && (
-                    <small style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                  {servers.length === 0 ? (
+                    <small style={{ color: '#dc2626', fontSize: '0.875rem', display: 'block' }}>
                       등록된 서버가 없습니다. 먼저 서버를 추가해주세요.
                     </small>
+                  ) : (
+                    <select 
+                      className="form-select"
+                      value={addFormData.serverId}
+                      onChange={(e) => {
+                        setAddFormData(prev => ({ 
+                          ...prev, 
+                          serverId: e.target.value
+                        }));
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      <option value="">서버를 선택하세요</option>
+                      {servers.map(server => (
+                        <option key={server.id} value={server.id}>
+                          {server.name} ({server.host}:{server.port})
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
 

@@ -1,5 +1,4 @@
 import { Shield, AlertTriangle, CheckCircle2, FileText, XCircle } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./ui/tooltip";
 import { useEffect, useRef, useState } from "react";
 import "../styles/CertificateStats.css";
 
@@ -84,39 +83,31 @@ export function CertificateStats({ total, valid, expiringSoon, expired, onFilter
   };
 
   return (
-    <TooltipProvider>
-      <div className="stats-grid">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const isActive = currentFilter === stat.filterValue;
-          const isWrapped = wrappedStates[index] || false;
-          return (
-            <Tooltip key={index}>
-              <TooltipTrigger asChild>
-                <div 
-                  ref={el => statCardRefs.current[index] = el}
-                  className={`stat-card ${isActive ? 'stat-card-active' : ''} ${isWrapped ? 'wrapped' : ''}`}
-                  onClick={() => handleStatClick(stat.filterValue)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="stat-content">
-                    <div className="stat-info">
-                      <p className="stat-title-text">{stat.title}</p>
-                      <p className="stat-value">{stat.value}</p>
-                    </div>
-                    <div className="stat-icon-wrapper" style={{ backgroundColor: stat.bgColor }}>
-                      <Icon className="stat-icon" style={{ color: stat.color }} />
-                    </div>
-                  </div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{stat.title}</p>
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </div>
-    </TooltipProvider>
+    <div className="stats-grid">
+      {stats.map((stat, index) => {
+        const Icon = stat.icon;
+        const isActive = currentFilter === stat.filterValue;
+        const isWrapped = wrappedStates[index] || false;
+        return (
+          <div 
+            key={index}
+            ref={el => statCardRefs.current[index] = el}
+            className={`stat-card ${isActive ? 'stat-card-active' : ''} ${isWrapped ? 'wrapped' : ''}`}
+            onClick={() => handleStatClick(stat.filterValue)}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="stat-content">
+              <div className="stat-info">
+                <p className="stat-title-text">{stat.title}</p>
+                <p className="stat-value">{stat.value}</p>
+              </div>
+              <div className="stat-icon-wrapper" style={{ backgroundColor: stat.bgColor }}>
+                <Icon className="stat-icon" style={{ color: stat.color }} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

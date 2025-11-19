@@ -1,7 +1,7 @@
 // API 베이스 URL 설정
 // 개발 모드(npm run dev): 더미 데이터 사용
 // 테스트 모드(npm run test) 및 프로덕션: 실제 API 호출
-const IS_DEV_MODE = import.meta.env.DEV === true;
+const IS_DEV_MODE = import.meta.env.MODE === 'development';
 
 // 모든 모드에서 프로덕션 서버 사용
 const API_BASE_URL = 'https://auto-cert-backend-production.up.railway.app';
@@ -302,23 +302,32 @@ export async function checkHealth() {
  * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function getServers() {
-  // TODO: 백엔드 API 구현 후 주석 해제
-  // try {
-  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers`);
-  //   return handleResponse(response);
-  // } catch (error) {
-  //   console.error('서버 목록 조회 실패:', error);
-  //   return [];
-  // }
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('서버 목록 조회 실패:', error);
+      return [];
+    }
+  }
   
-  // 더미 데이터 반환 (백엔드 미구현)
+  // 개발 모드: 더미 데이터 반환 (백엔드 미구현)
   return Promise.resolve([
     {
       id: 1,
       name: '프로덕션 서버',
       host: '192.168.1.100',
       port: 22,
+      serverType: 'nginx',
       description: '메인 프로덕션 서버',
+      sshUsername: 'root',
+      sshPort: 22,
+      deployPath: '/etc/nginx/ssl',
+      sshAuthType: 'password',
+      sshPassword: '',
+      sshPrivateKey: '',
       sshUsers: [
         { id: 1, username: 'root', serverId: 1 },
         { id: 2, username: 'ubuntu', serverId: 1 }
@@ -329,7 +338,14 @@ export async function getServers() {
       name: '스테이징 서버',
       host: '192.168.1.101',
       port: 22,
+      serverType: 'tomcat',
       description: '스테이징 환경 서버',
+      sshUsername: 'admin',
+      sshPort: 22,
+      deployPath: '/opt/tomcat/conf',
+      sshAuthType: 'key',
+      sshPassword: '',
+      sshPrivateKey: '',
       sshUsers: [
         { id: 3, username: 'admin', serverId: 2 }
       ]
