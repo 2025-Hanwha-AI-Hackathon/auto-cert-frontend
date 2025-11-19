@@ -23,7 +23,7 @@ export function ServerManagement({
     deployPath: '',
     sshAuthType: 'password', // 'password' or 'key'
     sshPassword: '',
-    sshPrivateKey: ''
+    sshPublicKey: ''
   });
 
   const handleAddServer = () => {
@@ -68,7 +68,7 @@ export function ServerManagement({
       deployPath: '',
       sshAuthType: 'password',
       sshPassword: '',
-      sshPrivateKey: ''
+      sshPublicKey: ''
     });
     setSelectedServer(null);
   };
@@ -89,7 +89,7 @@ export function ServerManagement({
       deployPath: server.deployPath || '',
       sshAuthType: server.sshAuthType || 'password',
       sshPassword: '', // 보안을 위해 비밀번호는 표시하지 않음
-      sshPrivateKey: '' // 보안을 위해 개인키는 표시하지 않음
+      sshPublicKey: '' // 보안을 위해 공개키는 표시하지 않음
     });
     setServerDialogOpen(true);
   };
@@ -120,7 +120,7 @@ export function ServerManagement({
               deployPath: '',
               sshAuthType: 'password',
               sshPassword: '',
-              sshPrivateKey: ''
+              sshPublicKey: ''
             });
             setServerDialogOpen(true);
           }}
@@ -255,9 +255,9 @@ export function ServerManagement({
                     serverTypeOther: e.target.value === '기타' ? prev.serverTypeOther : ''
                   }))}
                 >
-                  <option value="nginx">nginx</option>
-                  <option value="웹투비">웹투비</option>
-                  <option value="tomcat">tomcat</option>
+                  <option value="nginx">Nginx</option>
+                  <option value="웹투비">WebtoB</option>
+                  <option value="tomcat">Tomcat</option>
                   <option value="기타">기타</option>
                 </select>
                 {serverFormData.serverType === '기타' && (
@@ -337,7 +337,7 @@ export function ServerManagement({
                         onChange={() => setServerFormData(prev => ({ 
                           ...prev, 
                           sshAuthType: 'password',
-                          sshPrivateKey: '' // 전환 시 개인키 초기화
+                          sshPublicKey: '' // 전환 시 공개키 초기화
                         }))}
                         style={{ accentColor: '#FF6600' }}
                       />
@@ -373,13 +373,13 @@ export function ServerManagement({
                     <div>
                       <textarea
                         className="form-input"
-                        value={serverFormData.sshPrivateKey}
-                        onChange={(e) => setServerFormData(prev => ({ ...prev, sshPrivateKey: e.target.value }))}
-                        placeholder="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+                        value={serverFormData.sshPublicKey}
+                        onChange={(e) => setServerFormData(prev => ({ ...prev, sshPublicKey: e.target.value }))}
+                        placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
                         rows="6"
                       />
                       <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                        SSH 개인키를 입력하세요
+                        SSH 공개키를 입력하세요
                       </small>
                     </div>
                   )}

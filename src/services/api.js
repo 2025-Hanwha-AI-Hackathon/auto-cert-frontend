@@ -327,7 +327,7 @@ export async function getServers() {
       deployPath: '/etc/nginx/ssl',
       sshAuthType: 'password',
       sshPassword: '',
-      sshPrivateKey: '',
+      sshPublicKey: '',
       sshUsers: [
         { id: 1, username: 'root', serverId: 1 },
         { id: 2, username: 'ubuntu', serverId: 1 }
@@ -345,7 +345,7 @@ export async function getServers() {
       deployPath: '/opt/tomcat/conf',
       sshAuthType: 'key',
       sshPassword: '',
-      sshPrivateKey: '',
+      sshPublicKey: '',
       sshUsers: [
         { id: 3, username: 'admin', serverId: 2 }
       ]

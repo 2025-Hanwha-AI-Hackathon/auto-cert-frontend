@@ -27,7 +27,7 @@ const initialCertificates = [
     issueDate: "2024-05-01",
     expiryDate: "2025-05-01",
     status: "valid",
-    alarmDaysBefore: 30, // 만료 전 알람 발송 일자
+    alarmDaysBefore: 7, // 만료 전 알람 발송 일자
     managerName: "홍길동"
   },
   {
@@ -90,6 +90,17 @@ export default function App() {
   // 테스트 모드 여부 확인 (로컬 백엔드 사용 여부)
   const IS_DEV_MODE = import.meta.env.DEV === true;
   
+  // 서버 타입 표시 이름 변환 함수
+  const formatServerType = (serverType) => {
+    if (!serverType) return null;
+    const typeMap = {
+      'nginx': 'Nginx',
+      '웹투비': 'WebtoB',
+      'tomcat': 'Tomcat'
+    };
+    return typeMap[serverType] || serverType;
+  };
+  
   // 인증서는 API에서 로드하므로 빈 배열로 시작
   const [certificates, setCertificates] = useState([]);
   const [servers, setServers] = useState([]);
@@ -107,7 +118,7 @@ export default function App() {
     domain: '',
     challengeType: 'DNS',
     serverId: '',
-    alarmDaysBefore: 30, // 만료 전 알람 발송 일자
+    alarmDaysBefore: 7, // 만료 전 알람 발송 일자
     managerName: '',
     deployImmediately: false
   });
@@ -119,7 +130,7 @@ export default function App() {
     deployPath: '',
     sshAuthType: 'password',
     sshPassword: '',
-    sshPrivateKey: ''
+    sshPublicKey: ''
   });
   const [isDragging, setIsDragging] = useState(false);
   const [mouseDownTarget, setMouseDownTarget] = useState(null);
@@ -183,7 +194,7 @@ export default function App() {
             issueDate: cert.issuedAt ? new Date(cert.issuedAt).toISOString().split('T')[0] : '',
             expiryDate: cert.expiresAt ? new Date(cert.expiresAt).toISOString().split('T')[0] : '',
             status: status,
-            alarmDaysBefore: 30,
+            alarmDaysBefore: 7,
             managerName: '',
             serverId: cert.serverId,
             deployedAt: cert.deployedAt,
@@ -649,7 +660,7 @@ export default function App() {
         expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'valid',
         serverId: addFormData.serverId || null,
-        alarmDaysBefore: addFormData.alarmDaysBefore || 30,
+        alarmDaysBefore: addFormData.alarmDaysBefore || 7,
         managerName: addFormData.managerName.trim()
       };
       
@@ -715,7 +726,7 @@ export default function App() {
             domain: '', 
             challengeType: 'DNS', 
             serverId: '', 
-            alarmDaysBefore: 30,
+            alarmDaysBefore: 7,
             deployImmediately: false 
           });
         }, 3000);
@@ -737,7 +748,7 @@ export default function App() {
             domain: '', 
             challengeType: 'DNS', 
             serverId: '', 
-            alarmDaysBefore: 30,
+            alarmDaysBefore: 7,
             deployImmediately: false 
           });
         }, 3000);
@@ -759,7 +770,7 @@ export default function App() {
             domain: '', 
             challengeType: 'DNS', 
             serverId: '', 
-            alarmDaysBefore: 30,
+            alarmDaysBefore: 7,
             deployImmediately: false 
           });
         }, 3000);
@@ -914,7 +925,7 @@ export default function App() {
                 />
               </div>
               <div className="header-title">
-                <h1>SSL/TLS 인증서 관리 시스템</h1>
+                <h1>인증서 관리 시스템</h1>
                 <p className="header-subtitle">Certificate Management Dashboard</p>
               </div>
             </div>
@@ -1126,7 +1137,7 @@ export default function App() {
                                         deployPath: selectedServer.deployPath || '',
                                         sshAuthType: selectedServer.sshAuthType || 'password',
                                         sshPassword: selectedServer.sshPassword || '',
-                                        sshPrivateKey: selectedServer.sshPrivateKey || ''
+                                        sshPublicKey: selectedServer.sshPublicKey || ''
                                       });
                                     }}
                                     style={{
@@ -1219,11 +1230,12 @@ export default function App() {
                                     </div>
                                   ) : (
                                     <div>
-                                      <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>개인키</label>
+                                      <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>공개키</label>
                                       <textarea
                                         className="form-input"
-                                        value={sshEditData.sshPrivateKey}
-                                        onChange={(e) => setSshEditData(prev => ({ ...prev, sshPrivateKey: e.target.value }))}
+                                        value={sshEditData.sshPublicKey}
+                                        onChange={(e) => setSshEditData(prev => ({ ...prev, sshPublicKey: e.target.value }))}
+                                        placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
                                         style={{ fontSize: '0.875rem', padding: '0.375rem', minHeight: '80px', fontFamily: 'monospace' }}
                                         disabled={isSubmitting}
                                       />
@@ -1276,7 +1288,7 @@ export default function App() {
                                           deployPath: '',
                                           sshAuthType: 'password',
                                           sshPassword: '',
-                                          sshPrivateKey: ''
+                                          sshPublicKey: ''
                                         });
                                       }}
                                       disabled={isSubmitting}
@@ -1298,7 +1310,7 @@ export default function App() {
                                 <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                   <div style={{ display: 'flex', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>서버 타입:</span>
-                                    <span style={{ color: '#6b7280' }}>{selectedServer.serverType || '미설정'}</span>
+                                    <span style={{ color: '#6b7280' }}>{formatServerType(selectedServer.serverType) || '미설정'}</span>
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 사용자명:</span>
@@ -1495,7 +1507,7 @@ export default function App() {
                                   deployPath: selectedServer.deployPath || '',
                                   sshAuthType: selectedServer.sshAuthType || 'password',
                                   sshPassword: selectedServer.sshPassword || '',
-                                  sshPrivateKey: selectedServer.sshPrivateKey || ''
+                                  sshPublicKey: selectedServer.sshPublicKey || ''
                                 });
                               }}
                               style={{
@@ -1588,11 +1600,12 @@ export default function App() {
                               </div>
                             ) : (
                               <div>
-                                <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>개인키</label>
+                                <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>공개키</label>
                                 <textarea
                                   className="form-input"
-                                  value={sshEditData.sshPrivateKey}
-                                  onChange={(e) => setSshEditData(prev => ({ ...prev, sshPrivateKey: e.target.value }))}
+                                  value={sshEditData.sshPublicKey}
+                                  onChange={(e) => setSshEditData(prev => ({ ...prev, sshPublicKey: e.target.value }))}
+                                  placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
                                   style={{ fontSize: '0.875rem', padding: '0.375rem', minHeight: '80px', fontFamily: 'monospace' }}
                                   disabled={isSubmitting}
                                 />
@@ -1650,7 +1663,7 @@ export default function App() {
                                     deployPath: '',
                                     sshAuthType: 'password',
                                     sshPassword: '',
-                                    sshPrivateKey: ''
+                                    sshPublicKey: ''
                                   });
                                 }}
                                 disabled={isSubmitting}
@@ -1672,7 +1685,7 @@ export default function App() {
                           <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                               <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>서버 타입:</span>
-                              <span style={{ color: '#6b7280' }}>{selectedServer.serverType || '미설정'}</span>
+                              <span style={{ color: '#6b7280' }}>{formatServerType(selectedServer.serverType) || '미설정'}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                               <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 사용자명:</span>
@@ -1717,23 +1730,23 @@ export default function App() {
                     onBlur={(e) => {
                       const value = e.target.value.trim();
                       if (value === '' || isNaN(parseInt(value)) || parseInt(value) < 1) {
-                        setAddFormData(prev => ({ ...prev, alarmDaysBefore: 30 }));
+                        setAddFormData(prev => ({ ...prev, alarmDaysBefore: 7 }));
                       } else {
                         const numValue = parseInt(value);
                         if (numValue > 365) {
                           setAddFormData(prev => ({ ...prev, alarmDaysBefore: 365 }));
                         } else if (numValue < 1) {
-                          setAddFormData(prev => ({ ...prev, alarmDaysBefore: 30 }));
+                          setAddFormData(prev => ({ ...prev, alarmDaysBefore: 7 }));
                         }
                       }
                     }}
-                    placeholder="30"
+                    placeholder="7"
                     min="1"
                     max="365"
                     disabled={isSubmitting}
                   />
                   <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                    인증서 만료 전 며칠 전에 알람을 발송할지 설정합니다. (기본값: 30일)
+                    인증서 만료 전 며칠 전에 알람을 발송할지 설정합니다. (기본값: 7일)
                   </small>
                 </div>
 
@@ -1768,7 +1781,7 @@ export default function App() {
                     domain: '', 
                     challengeType: 'DNS', 
                     serverId: '', 
-                    alarmDaysBefore: 30,
+                    alarmDaysBefore: 7,
                     managerName: '',
                     deployImmediately: false 
                   });
@@ -1877,7 +1890,7 @@ export default function App() {
                           domain: '', 
                           challengeType: 'DNS', 
                           serverId: '', 
-                          alarmDaysBefore: 30,
+                          alarmDaysBefore: 7,
                           deployImmediately: false 
                         });
                       } else {
@@ -2364,7 +2377,7 @@ export default function App() {
                             </tr>
                             <tr>
                               <th>서버 타입</th>
-                              <td>{deployedServer.serverType || 'N/A'}</td>
+                              <td>{formatServerType(deployedServer.serverType) || 'N/A'}</td>
                             </tr>
                             <tr>
                               <th>설명</th>
