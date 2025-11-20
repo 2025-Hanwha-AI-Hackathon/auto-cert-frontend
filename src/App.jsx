@@ -1387,7 +1387,7 @@ export default function App() {
               </div>
               <div className="header-title">
                 <h1>인증서 관리 시스템</h1>
-                <p className="header-subtitle">Certificate Management Dashboard</p>
+                <p className="header-subtitle">Auto Certificate Management Dashboard</p>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>

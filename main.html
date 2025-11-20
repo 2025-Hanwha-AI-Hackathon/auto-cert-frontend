@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>SSL/TLS 인증서 관리 시스템</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background: #f9fafb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #FF6600 0%, #FF8533 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 30px;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            border-color: #FF6600;
+        }
+
+        .feature-card h3 {
+            color: #FF6600;
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+        }
+
+        .feature-card p {
+            color: #6b7280;
+            line-height: 1.8;
+            font-size: 0.875rem;
+        }
+
+        .actions {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.625rem 1rem;
+            background-color: #FF6600;
+            color: white;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            margin-left: 15px;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f9fafb;
+        }
+
+        .info-section {
+            background: #f9fafb;
+            padding: 40px;
+            border-radius: 0.5rem;
+            margin-top: 40px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .info-section h2 {
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .info-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-section li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .info-section li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #FF6600;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .header p {
+                font-size: 1rem;
+            }
+
+            .content {
+                padding: 40px 20px;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                display: block;
+                margin: 10px 0;
+            }
+
+            .btn-secondary {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ SSL/TLS 인증서 관리 시스템</h1>
+            <p>인증서를 효율적으로 관리하고 모니터링하세요</p>
+        </div>
+
+        <div class="content">
+            <div class="features">
+                <div class="feature-card">
+                    <h3>
+                        <span class="feature-icon">📋</span>
+                        인증서 관리
+                    </h3>
+                    <p>
+                        SSL/TLS 인증서를 중앙에서 관리하고, 만료일을 모니터링하며, 
+                        자동 갱신을 설정할 수 있습니다.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>
+                        <span class="feature-icon">🔄</span>
+                        자동 갱신
+                    </h3>
+                    <p>
+                        Let's Encrypt 인증서를 자동으로 갱신하고, 
+                        서버에 자동 배포하여 중단 없이 유지합니다.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>
+                        <span class="feature-icon">🔔</span>
+                        만료 알림
+                    </h3>
+                    <p>
+                        인증서 만료 전 알림을 받고, 상태를 실시간으로 확인하여 
+                        보안 문제를 사전에 방지합니다.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>
+                        <span class="feature-icon">🖥️</span>
+                        서버 관리
+                    </h3>
+                    <p>
+                        여러 서버의 SSH 정보를 관리하고, 
+                        인증서를 원클릭으로 배포할 수 있습니다.
+                    </p>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h2>주요 기능</h2>
+                <ul>
+                    <li>인증서 목록 조회 및 상세 정보 확인</li>
+                    <li>신규 인증서 발급 및 관리</li>
+                    <li>인증서 자동 갱신 설정</li>
+                    <li>서버별 인증서 배포 관리</li>
+                    <li>만료 알림 및 상태 모니터링</li>
+                    <li>통계 대시보드 제공</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
