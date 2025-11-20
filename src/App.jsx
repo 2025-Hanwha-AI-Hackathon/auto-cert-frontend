@@ -156,6 +156,7 @@ export default function App() {
   const [isLoadingCertificates, setIsLoadingCertificates] = useState(true);
   const [isLoadingTimeout, setIsLoadingTimeout] = useState(false);
   const loadingTimeoutRef = useRef(null);
+  const [isLoadingServers, setIsLoadingServers] = useState(false);
 
   // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
@@ -256,6 +257,7 @@ export default function App() {
 
   const loadServers = async () => {
     try {
+      setIsLoadingServers(true);
       const serversData = await getServers();
       // API 응답이 Page 객체인 경우 content를 추출, 배열인 경우 그대로 사용
       const serversList = serversData?.content || serversData || [];
@@ -263,6 +265,8 @@ export default function App() {
     } catch (err) {
       console.error('서버 목록 조회 실패:', err);
       setServers([]);
+    } finally {
+      setIsLoadingServers(false);
     }
   };
 
@@ -1066,6 +1070,7 @@ export default function App() {
   // 서버 관리 핸들러
   const handleAddServer = async (serverData) => {
     try {
+      setIsLoadingServers(true);
       // 백엔드 API로 서버 생성
       const createdServer = await createServer(serverData);
       
@@ -1076,6 +1081,7 @@ export default function App() {
     } catch (err) {
       console.error('서버 추가 실패:', err);
       alert(`서버 추가에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
+      setIsLoadingServers(false);
     }
   };
 
@@ -1260,6 +1266,7 @@ export default function App() {
             onAddServer={handleAddServer}
             onUpdateServer={handleUpdateServer}
             onDeleteServer={handleDeleteServer}
+            isLoading={isLoadingServers}
           />
         )}
       </main>
