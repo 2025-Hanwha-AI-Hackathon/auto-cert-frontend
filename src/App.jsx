@@ -210,17 +210,38 @@ export default function App() {
       if (response && response.content) {
         // API 응답을 프론트엔드 형식으로 변환
         const transformedCertificates = response.content.map(cert => {
-          // 백엔드 CertificateStatus를 프론트엔드 상태로 변환
+          // 만료일 기준으로 상태 계산 (7일 이내면 곧 만료)
           let status = 'expired';
-          if (cert.status === 'ACTIVE') {
-            status = 'valid';
-          } else if (cert.status === 'EXPIRING_SOON') {
-            status = 'expiring-soon';
-          } else if (cert.status === 'EXPIRED' || cert.status === 'REVOKED' || cert.status === 'FAILED' || cert.status === 'INACTIVE') {
-            status = 'expired';
-          } else if (cert.status === 'PENDING' || cert.status === 'ISSUING' || cert.status === 'RENEWING') {
-            // 처리 중인 상태는 valid로 표시 (UI에서 처리 중 표시 가능)
-            status = 'valid';
+          if (cert.expiresAt) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expiryDate = new Date(cert.expiresAt);
+            expiryDate.setHours(0, 0, 0, 0);
+            const diffTime = expiryDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) {
+              // 만료됨
+              status = 'expired';
+            } else if (diffDays <= 7) {
+              // 7일 이내 - 곧 만료
+              status = 'expiring-soon';
+            } else {
+              // 유효
+              status = 'valid';
+            }
+          } else {
+            // 백엔드 CertificateStatus를 프론트엔드 상태로 변환 (fallback)
+            if (cert.status === 'ACTIVE') {
+              status = 'valid';
+            } else if (cert.status === 'EXPIRING_SOON') {
+              status = 'expiring-soon';
+            } else if (cert.status === 'EXPIRED' || cert.status === 'REVOKED' || cert.status === 'FAILED' || cert.status === 'INACTIVE') {
+              status = 'expired';
+            } else if (cert.status === 'PENDING' || cert.status === 'ISSUING' || cert.status === 'RENEWING') {
+              // 처리 중인 상태는 valid로 표시 (UI에서 처리 중 표시 가능)
+              status = 'valid';
+            }
           }
           
           return {
@@ -430,15 +451,34 @@ export default function App() {
 
       // API 응답을 프론트엔드 형식으로 변환하여 인증서 업데이트
       if (renewedCert) {
-        let status = 'valid';
-        if (renewedCert.status === 'ACTIVE') {
-          status = 'valid';
-        } else if (renewedCert.status === 'EXPIRING_SOON') {
-          status = 'expiring-soon';
-        } else if (renewedCert.status === 'EXPIRED' || renewedCert.status === 'REVOKED' || renewedCert.status === 'FAILED' || renewedCert.status === 'INACTIVE') {
-          status = 'expired';
-        } else if (renewedCert.status === 'PENDING' || renewedCert.status === 'ISSUING' || renewedCert.status === 'RENEWING') {
-          status = 'valid';
+        // 만료일 기준으로 상태 계산 (7일 이내면 곧 만료)
+        let status = 'expired';
+        if (renewedCert.expiresAt) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const expiryDate = new Date(renewedCert.expiresAt);
+          expiryDate.setHours(0, 0, 0, 0);
+          const diffTime = expiryDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays < 0) {
+            status = 'expired';
+          } else if (diffDays <= 7) {
+            status = 'expiring-soon';
+          } else {
+            status = 'valid';
+          }
+        } else {
+          // 백엔드 상태를 그대로 사용 (fallback)
+          if (renewedCert.status === 'ACTIVE') {
+            status = 'valid';
+          } else if (renewedCert.status === 'EXPIRING_SOON') {
+            status = 'expiring-soon';
+          } else if (renewedCert.status === 'EXPIRED' || renewedCert.status === 'REVOKED' || renewedCert.status === 'FAILED' || renewedCert.status === 'INACTIVE') {
+            status = 'expired';
+          } else if (renewedCert.status === 'PENDING' || renewedCert.status === 'ISSUING' || renewedCert.status === 'RENEWING') {
+            status = 'valid';
+          }
         }
         
         setCertificates(prev => prev.map(cert => 
@@ -597,16 +637,37 @@ export default function App() {
         try {
           const apiCert = await getCertificateAPI(Number(id));
           if (apiCert) {
-            // API 응답을 프론트엔드 형식으로 변환
+            // 만료일 기준으로 상태 계산 (7일 이내면 곧 만료)
             let status = 'expired';
-            if (apiCert.status === 'ACTIVE') {
-              status = 'valid';
-            } else if (apiCert.status === 'EXPIRING_SOON') {
-              status = 'expiring-soon';
-            } else if (apiCert.status === 'EXPIRED' || apiCert.status === 'REVOKED' || apiCert.status === 'FAILED' || apiCert.status === 'INACTIVE') {
-              status = 'expired';
-            } else if (apiCert.status === 'PENDING' || apiCert.status === 'ISSUING' || apiCert.status === 'RENEWING') {
-              status = 'valid';
+            if (apiCert.expiresAt) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const expiryDate = new Date(apiCert.expiresAt);
+              expiryDate.setHours(0, 0, 0, 0);
+              const diffTime = expiryDate.getTime() - today.getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              
+              if (diffDays < 0) {
+                // 만료됨
+                status = 'expired';
+              } else if (diffDays <= 7) {
+                // 7일 이내 - 곧 만료
+                status = 'expiring-soon';
+              } else {
+                // 유효
+                status = 'valid';
+              }
+            } else {
+              // 백엔드 CertificateStatus를 프론트엔드 상태로 변환 (fallback)
+              if (apiCert.status === 'ACTIVE') {
+                status = 'valid';
+              } else if (apiCert.status === 'EXPIRING_SOON') {
+                status = 'expiring-soon';
+              } else if (apiCert.status === 'EXPIRED' || apiCert.status === 'REVOKED' || apiCert.status === 'FAILED' || apiCert.status === 'INACTIVE') {
+                status = 'expired';
+              } else if (apiCert.status === 'PENDING' || apiCert.status === 'ISSUING' || apiCert.status === 'RENEWING') {
+                status = 'valid';
+              }
             }
             
             cert = {
@@ -860,14 +921,33 @@ export default function App() {
       // API 응답을 프론트엔드 형식으로 변환
       let status = 'valid';
       if (createdCert) {
-        if (createdCert.status === 'ACTIVE') {
-          status = 'valid';
-        } else if (createdCert.status === 'EXPIRING_SOON') {
-          status = 'expiring-soon';
-        } else if (createdCert.status === 'EXPIRED' || createdCert.status === 'REVOKED' || createdCert.status === 'FAILED' || createdCert.status === 'INACTIVE') {
-          status = 'expired';
-        } else if (createdCert.status === 'PENDING' || createdCert.status === 'ISSUING' || createdCert.status === 'RENEWING') {
-          status = 'valid';
+        // 만료일 기준으로 상태 계산 (7일 이내면 곧 만료)
+        if (createdCert.expiresAt) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const expiryDate = new Date(createdCert.expiresAt);
+          expiryDate.setHours(0, 0, 0, 0);
+          const diffTime = expiryDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays < 0) {
+            status = 'expired';
+          } else if (diffDays <= 7) {
+            status = 'expiring-soon';
+          } else {
+            status = 'valid';
+          }
+        } else {
+          // 백엔드 상태를 그대로 사용 (fallback)
+          if (createdCert.status === 'ACTIVE') {
+            status = 'valid';
+          } else if (createdCert.status === 'EXPIRING_SOON') {
+            status = 'expiring-soon';
+          } else if (createdCert.status === 'EXPIRED' || createdCert.status === 'REVOKED' || createdCert.status === 'FAILED' || createdCert.status === 'INACTIVE') {
+            status = 'expired';
+          } else if (createdCert.status === 'PENDING' || createdCert.status === 'ISSUING' || createdCert.status === 'RENEWING') {
+            status = 'valid';
+          }
         }
       }
       

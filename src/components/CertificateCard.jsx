@@ -127,7 +127,7 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
             {certificate.status === 'expired' ? (
               <span className="detail-value remaining-days-expired">만료됨</span>
             ) : (
-              <span className={daysRemaining <= 30 ? "detail-value remaining-days-warning" : "detail-value"}>
+              <span className={daysRemaining <= 7 ? "detail-value remaining-days-warning" : "detail-value"}>
                 {daysRemaining}일
               </span>
             )}
