@@ -534,7 +534,7 @@ export default function App() {
 
       // 3. 갱신 완료
       setRenewProgress({ step: 3, message: '갱신 완료!', error: null, type: 'renew' });
-      await new Promise(resolve => setTimeout(resolve, 5000)); // 최소 5초 보장
+      await new Promise(resolve => setTimeout(resolve, 2500)); // 2.5초 보장
 
       // 취소 확인 (완료 전 마지막 확인)
       if (renewCancelledRef.current) {
@@ -898,6 +898,11 @@ export default function App() {
         return;
       }
 
+      // 개발 모드일 때 5초 지연 (추가 중 애니메이션을 보여주기 위해)
+      if (IS_DEV_MODE) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+
       // 백엔드 API로 인증서 생성 (비개발 모드에서만)
       let createdCert = null;
       if (!IS_DEV_MODE) {
@@ -970,49 +975,54 @@ export default function App() {
       
       setCertificates(prev => [newCert, ...prev]);
       
+      // 인증서 목록 재로드 (최신 상태 가져오기)
+      if (!IS_DEV_MODE) {
+        await loadCertificates();
+      }
+      
       // 인증서 추가 다이얼로그 닫기
       setAddDialogOpen(false);
       
-      // 진행 다이얼로그 열기 (항상 표시)
-      setRenewProgressDialogOpen(true);
-      setRenewProgress({ step: 0, message: '인증서 생성 및 배포를 시작합니다...', error: null, type: 'add' });
-      addCancelledRef.current = false;
-      
-      // 배포 옵션이 선택되었으면 배포 프로세스 시작
+      // 배포 옵션이 선택되었으면 갱신 애니메이션 재생
       if (addFormData.deployImmediately && addFormData.serverId) {
-        // 배포 프로세스 시작 (서버의 SSH 정보 사용)
-        confirmAddAndDeploy(newCert.id, addFormData.serverId);
-      } else {
-        // 배포 없이 인증서 생성만 완료
-        setRenewProgress({ step: 3, message: '인증서 생성 완료!', error: null, type: 'add' });
-        await new Promise(resolve => setTimeout(resolve, 5000)); // 최소 5초 보장
-        
-        // 인증서 목록 재로드 (최신 상태 가져오기)
-        if (!IS_DEV_MODE) {
-          await loadCertificates();
-        }
-        
-        // 진행 다이얼로그 닫기
-        setRenewProgressDialogOpen(false);
-        setRenewProgress({ step: 0, message: '', error: null, type: 'add' });
+        // 갱신 애니메이션 팝업 열기
+        setRenewProgressDialogOpen(true);
+        setRenewProgress({ step: 0, message: '인증서 생성 및 배포를 시작합니다...', error: null, type: 'add' });
         addCancelledRef.current = false;
         
-        setAddFormData({ 
-          domain: '', 
-          challengeType: 'DNS', 
-          serverId: '', 
-          alarmDaysBefore: 7,
-          managerName: '',
-          deployImmediately: false 
-        });
-        
-        // HTTPS 테스트 자동 실행
-        if (newCert.domain) {
-          // 인증서 목록이 업데이트된 후 HTTPS 테스트 실행
-          setTimeout(() => {
-            handleHttpsTest(newCert.domain, newCert.id);
-          }, 100);
+        try {
+          // 배포 프로세스 시작 (서버의 SSH 정보 사용)
+          await confirmAddAndDeploy(newCert.id, addFormData.serverId);
+          
+          // 갱신 애니메이션 팝업 닫기
+          setRenewProgressDialogOpen(false);
+          setRenewProgress({ step: 0, message: '', error: null, type: 'add' });
+        } catch (deployErr) {
+          // 배포 실패 시 에러는 confirmAddAndDeploy에서 이미 처리됨
+          // 갱신 애니메이션 팝업 닫기
+          setRenewProgressDialogOpen(false);
+          setRenewProgress({ step: 0, message: '', error: null, type: 'add' });
+          return;
         }
+      } else {
+        // 배포 없이 생성만 완료된 경우 (갱신 애니메이션 재생하지 않음)
+        // 추가 작업 없음
+      }
+      
+      setAddFormData({ 
+        domain: '', 
+        challengeType: 'DNS', 
+        serverId: '', 
+        alarmDaysBefore: 7,
+        managerName: '',
+        deployImmediately: false 
+      });
+      
+      // HTTPS 테스트 자동 실행
+      if (newCert.domain) {
+        setTimeout(() => {
+          handleHttpsTest(newCert.domain, newCert.id);
+        }, 100);
       }
     } catch (err) {
       console.error('인증서 생성 실패:', err);
@@ -1028,10 +1038,14 @@ export default function App() {
       setRenewProgress({ step: 1, message: '인증서 생성 중...', error: null, type: 'add' });
       const step1StartTime = Date.now();
       // 실제 생성 작업이 있다면 여기서 수행
-      // 최소 5초 보장
-      const step1ElapsedTime = Date.now() - step1StartTime;
-      if (step1ElapsedTime < 5000) {
-        await new Promise(resolve => setTimeout(resolve, 5000 - step1ElapsedTime));
+      // 최소 5초 보장 (개발 모드일 때는 5초 고정)
+      if (IS_DEV_MODE) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      } else {
+        const step1ElapsedTime = Date.now() - step1StartTime;
+        if (step1ElapsedTime < 5000) {
+          await new Promise(resolve => setTimeout(resolve, 5000 - step1ElapsedTime));
+        }
       }
       
       // 취소 확인
@@ -1082,7 +1096,7 @@ export default function App() {
 
       // 3. 완료
       setRenewProgress({ step: 3, message: '완료!', error: null, type: 'add' });
-      await new Promise(resolve => setTimeout(resolve, 5000)); // 최소 5초 보장
+      await new Promise(resolve => setTimeout(resolve, 2500)); // 2.5초 보장
 
       // 취소 확인 (완료 전 마지막 확인)
       if (addCancelledRef.current) {
@@ -2177,7 +2191,12 @@ export default function App() {
                 onClick={handleAddCertificate}
                 disabled={isSubmitting || !addFormData.domain.trim() || !addFormData.managerName.trim()}
               >
-                {isSubmitting ? '추가 중...' : '추가하기'}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="spinner-icon" size={16} style={{ marginRight: '8px', animation: 'spin 1s linear infinite' }} />
+                    추가 중
+                  </>
+                ) : '추가하기'}
               </button>
             </div>
           </div>
