@@ -7,6 +7,10 @@ import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, Extern
 import hanwhaLogo from "./assets/ci_logo_b.png";
 import { 
   getCertificates as getCertificatesAPI,
+  getCertificate as getCertificateAPI,
+  createCertificate as createCertificateAPI,
+  renewCertificate as renewCertificateAPI,
+  deleteCertificate as deleteCertificateAPI,
   getServers,
   createServer,
   updateServer as updateServerAPI,
@@ -129,8 +133,7 @@ export default function App() {
     sshPort: 22,
     deployPath: '',
     sshAuthType: 'password',
-    sshPassword: '',
-    sshPublicKey: ''
+    sshPassword: ''
   });
   const [isDragging, setIsDragging] = useState(false);
   const [mouseDownTarget, setMouseDownTarget] = useState(null);
@@ -322,7 +325,36 @@ export default function App() {
     try {
       // 1. 인증서 갱신 중
       setRenewProgress({ step: 1, message: '인증서 갱신 중...', error: null, type: 'renew' });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 시뮬레이션 지연
+      
+      // 백엔드 API로 인증서 갱신 (비개발 모드에서만)
+      let renewedCert = null;
+      if (!IS_DEV_MODE) {
+        try {
+          renewedCert = await renewCertificateAPI(Number(selectedCertId));
+        } catch (error) {
+          console.error('인증서 갱신 실패:', error);
+          setRenewProgress({ 
+            step: -1, 
+            message: '갱신 실패', 
+            error: error.message || '인증서 갱신에 실패했습니다.', 
+            type: 'renew' 
+          });
+          setTimeout(() => {
+            setRenewProgressDialogOpen(false);
+            setRenewProgress({ step: 0, message: '', error: null, type: 'renew' });
+            renewCancelledRef.current = false;
+            setSelectedCertId(null);
+            setRenewFormData({ 
+              serverId: '', 
+              deployImmediately: false 
+            });
+          }, 3000);
+          return;
+        }
+      } else {
+        // 개발 모드: 시뮬레이션 지연
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
       
       // 취소 확인
       if (renewCancelledRef.current) {
@@ -340,16 +372,43 @@ export default function App() {
         return;
       }
 
-      // 인증서 갱신 처리 (SSH 유저 ID도 저장)
-      setCertificates(prev => prev.map(cert => 
-        cert.id === selectedCertId 
-          ? { 
-              ...cert, 
-              status: 'valid', 
-              expiryDate: '2026-11-05',
-            }
-          : cert
-      ));
+      // API 응답을 프론트엔드 형식으로 변환하여 인증서 업데이트
+      if (renewedCert) {
+        let status = 'valid';
+        if (renewedCert.status === 'ACTIVE') {
+          status = 'valid';
+        } else if (renewedCert.status === 'EXPIRING_SOON') {
+          status = 'expiring-soon';
+        } else if (renewedCert.status === 'EXPIRED' || renewedCert.status === 'REVOKED' || renewedCert.status === 'FAILED' || renewedCert.status === 'INACTIVE') {
+          status = 'expired';
+        } else if (renewedCert.status === 'PENDING' || renewedCert.status === 'ISSUING' || renewedCert.status === 'RENEWING') {
+          status = 'valid';
+        }
+        
+        setCertificates(prev => prev.map(cert => 
+          cert.id === selectedCertId 
+            ? { 
+                ...cert, 
+                status: status,
+                expiryDate: renewedCert.expiresAt ? new Date(renewedCert.expiresAt).toISOString().split('T')[0] : cert.expiryDate,
+                rawStatus: renewedCert.status,
+                renewalAttempts: renewedCert.renewalAttempts || cert.renewalAttempts || 0,
+                lastError: renewedCert.lastError || null
+              }
+            : cert
+        ));
+      } else {
+        // 개발 모드: 더미 데이터 업데이트
+        setCertificates(prev => prev.map(cert => 
+          cert.id === selectedCertId 
+            ? { 
+                ...cert, 
+                status: 'valid', 
+                expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              }
+            : cert
+        ));
+      }
 
       // 2. 파일 배포 중
       setRenewProgress({ step: 2, message: '파일 배포 중...', error: null, type: 'renew' });
@@ -391,6 +450,11 @@ export default function App() {
         return;
       }
 
+      // 인증서 목록 재로드 (최신 상태 가져오기)
+      if (!IS_DEV_MODE) {
+        await loadCertificates();
+      }
+      
       // HTTPS 테스트 자동 실행
       const updatedCert = certificates.find(c => c.id === selectedCertId);
       if (updatedCert && updatedCert.domain) {
@@ -456,12 +520,65 @@ export default function App() {
     return true;
   };
 
-  const handleViewDetails = (id) => {
-    const cert = certificates.find(c => c.id === id);
-    if (cert) {
-      setSelectedCertificate(cert);
-      setDetailDialogOpen(true);
-      setHttpsTestResult(null);
+  const handleViewDetails = async (id) => {
+    try {
+      // 로컬 상태에서 먼저 확인
+      let cert = certificates.find(c => c.id === id);
+      
+      // API에서 최신 정보 가져오기 (비개발 모드에서만)
+      if (!IS_DEV_MODE && id) {
+        try {
+          const apiCert = await getCertificateAPI(Number(id));
+          if (apiCert) {
+            // API 응답을 프론트엔드 형식으로 변환
+            let status = 'expired';
+            if (apiCert.status === 'ACTIVE') {
+              status = 'valid';
+            } else if (apiCert.status === 'EXPIRING_SOON') {
+              status = 'expiring-soon';
+            } else if (apiCert.status === 'EXPIRED' || apiCert.status === 'REVOKED' || apiCert.status === 'FAILED' || apiCert.status === 'INACTIVE') {
+              status = 'expired';
+            } else if (apiCert.status === 'PENDING' || apiCert.status === 'ISSUING' || apiCert.status === 'RENEWING') {
+              status = 'valid';
+            }
+            
+            cert = {
+              id: String(apiCert.id),
+              name: apiCert.domain || `인증서 #${apiCert.id}`,
+              type: "SSL/TLS 인증서",
+              domain: apiCert.domain,
+              issuer: apiCert.issuer || "Let's Encrypt",
+              issueDate: apiCert.issuedAt ? new Date(apiCert.issuedAt).toISOString().split('T')[0] : '',
+              expiryDate: apiCert.expiresAt ? new Date(apiCert.expiresAt).toISOString().split('T')[0] : '',
+              status: status,
+              alarmDaysBefore: cert?.alarmDaysBefore || 7,
+              managerName: cert?.managerName || '',
+              serverId: apiCert.serverId || cert?.serverId,
+              deployedAt: apiCert.deployedAt || cert?.deployedAt,
+              rawStatus: apiCert.status,
+              renewalAttempts: apiCert.renewalAttempts || 0,
+              lastError: apiCert.lastError || null
+            };
+            
+            // 로컬 상태도 업데이트
+            setCertificates(prev => prev.map(c => 
+              c.id === id ? cert : c
+            ));
+          }
+        } catch (error) {
+          console.error('인증서 상세 조회 실패:', error);
+          // API 호출 실패 시 로컬 상태 사용
+        }
+      }
+      
+      if (cert) {
+        setSelectedCertificate(cert);
+        setDetailDialogOpen(true);
+        setHttpsTestResult(null);
+      }
+    } catch (error) {
+      console.error('상세보기 로드 실패:', error);
+      alert('인증서 정보를 불러오는데 실패했습니다.');
     }
   };
 
@@ -625,9 +742,6 @@ export default function App() {
     try {
       setIsSubmitting(true);
       
-      // 더미 인증서 생성 (테스트용)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       // 서버 정보 검증 (서버 선택 시 서버에 SSH 정보가 있는지 확인)
       if (addFormData.serverId) {
         const selectedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
@@ -650,18 +764,51 @@ export default function App() {
         return;
       }
 
+      // 백엔드 API로 인증서 생성 (비개발 모드에서만)
+      let createdCert = null;
+      if (!IS_DEV_MODE) {
+        try {
+          createdCert = await createCertificateAPI({
+            domain: addFormData.domain.trim(),
+            challengeType: addFormData.challengeType === 'DNS' ? 'DNS-01' : 'HTTP-01'
+          });
+        } catch (error) {
+          console.error('인증서 생성 실패:', error);
+          alert(`인증서 생성에 실패했습니다: ${error.message || '알 수 없는 오류'}`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // API 응답을 프론트엔드 형식으로 변환
+      let status = 'valid';
+      if (createdCert) {
+        if (createdCert.status === 'ACTIVE') {
+          status = 'valid';
+        } else if (createdCert.status === 'EXPIRING_SOON') {
+          status = 'expiring-soon';
+        } else if (createdCert.status === 'EXPIRED' || createdCert.status === 'REVOKED' || createdCert.status === 'FAILED' || createdCert.status === 'INACTIVE') {
+          status = 'expired';
+        } else if (createdCert.status === 'PENDING' || createdCert.status === 'ISSUING' || createdCert.status === 'RENEWING') {
+          status = 'valid';
+        }
+      }
+      
       const newCert = {
-        id: String(Date.now()),
-        name: addFormData.domain,
+        id: createdCert ? String(createdCert.id) : String(Date.now()),
+        name: addFormData.domain.trim(),
         type: "SSL/TLS 인증서",
         domain: addFormData.domain.trim(),
-        issuer: "Let's Encrypt",
-        issueDate: new Date().toISOString().split('T')[0],
-        expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'valid',
+        issuer: createdCert?.issuer || "Let's Encrypt",
+        issueDate: createdCert?.issuedAt ? new Date(createdCert.issuedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        expiryDate: createdCert?.expiresAt ? new Date(createdCert.expiresAt).toISOString().split('T')[0] : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: status,
         serverId: addFormData.serverId || null,
         alarmDaysBefore: addFormData.alarmDaysBefore || 7,
-        managerName: addFormData.managerName.trim()
+        managerName: addFormData.managerName.trim(),
+        rawStatus: createdCert?.status || 'ACTIVE',
+        renewalAttempts: createdCert?.renewalAttempts || 0,
+        lastError: createdCert?.lastError || null
       };
       
       setCertificates(prev => [newCert, ...prev]);
@@ -678,18 +825,19 @@ export default function App() {
         // 배포 프로세스 시작 (서버의 SSH 정보 사용)
         confirmAddAndDeploy(newCert.id, addFormData.serverId);
       } else {
+        // 인증서 목록 재로드 (최신 상태 가져오기)
+        if (!IS_DEV_MODE) {
+          await loadCertificates();
+        }
+        
         alert("새 인증서가 성공적으로 추가되었습니다!");
         setAddDialogOpen(false);
         setAddFormData({ 
           domain: '', 
           challengeType: 'DNS', 
           serverId: '', 
-          alarmDaysBefore: 30,
-          manager: {
-            name: '',
-            email: '',
-            phone: ''
-          },
+          alarmDaysBefore: 7,
+          managerName: '',
           deployImmediately: false 
         });
         
@@ -1135,9 +1283,8 @@ export default function App() {
                                         sshUsername: selectedServer.sshUsername || '',
                                         sshPort: selectedServer.sshPort || 22,
                                         deployPath: selectedServer.deployPath || '',
-                                        sshAuthType: selectedServer.sshAuthType || 'password',
-                                        sshPassword: selectedServer.sshPassword || '',
-                                        sshPublicKey: selectedServer.sshPublicKey || ''
+                                        sshAuthType: 'password',
+                                        sshPassword: selectedServer.sshPassword || ''
                                       });
                                     }}
                                     style={{
@@ -1190,57 +1337,16 @@ export default function App() {
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>인증 방식</label>
-                                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem' }}>
-                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                                        <input
-                                          type="radio"
-                                          name="sshAuthType-renew"
-                                          value="password"
-                                          checked={sshEditData.sshAuthType === 'password'}
-                                          onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
-                                          disabled={isSubmitting}
-                                        />
-                                        비밀번호
-                                      </label>
-                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                                        <input
-                                          type="radio"
-                                          name="sshAuthType-renew"
-                                          value="key"
-                                          checked={sshEditData.sshAuthType === 'key'}
-                                          onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
-                                          disabled={isSubmitting}
-                                        />
-                                        KEY 방식
-                                      </label>
-                                    </div>
+                                    <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>비밀번호</label>
+                                    <input
+                                      type="password"
+                                      className="form-input"
+                                      value={sshEditData.sshPassword}
+                                      onChange={(e) => setSshEditData(prev => ({ ...prev, sshPassword: e.target.value }))}
+                                      style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                      disabled={isSubmitting}
+                                    />
                                   </div>
-                                  {sshEditData.sshAuthType === 'password' ? (
-                                    <div>
-                                      <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>비밀번호</label>
-                                      <input
-                                        type="password"
-                                        className="form-input"
-                                        value={sshEditData.sshPassword}
-                                        onChange={(e) => setSshEditData(prev => ({ ...prev, sshPassword: e.target.value }))}
-                                        style={{ fontSize: '0.875rem', padding: '0.375rem' }}
-                                        disabled={isSubmitting}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div>
-                                      <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>공개키</label>
-                                      <textarea
-                                        className="form-input"
-                                        value={sshEditData.sshPublicKey}
-                                        onChange={(e) => setSshEditData(prev => ({ ...prev, sshPublicKey: e.target.value }))}
-                                        placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
-                                        style={{ fontSize: '0.875rem', padding: '0.375rem', minHeight: '80px', fontFamily: 'monospace' }}
-                                        disabled={isSubmitting}
-                                      />
-                                    </div>
-                                  )}
                                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                                     <button
                                       type="button"
@@ -1288,7 +1394,6 @@ export default function App() {
                                           deployPath: '',
                                           sshAuthType: 'password',
                                           sshPassword: '',
-                                          sshPublicKey: ''
                                         });
                                       }}
                                       disabled={isSubmitting}
@@ -1326,7 +1431,7 @@ export default function App() {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
-                                    <span style={{ color: '#6b7280' }}>{selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</span>
+                                    <span style={{ color: '#6b7280' }}>비밀번호</span>
                                   </div>
                                 </div>
                               )}
@@ -1505,9 +1610,8 @@ export default function App() {
                                   sshUsername: selectedServer.sshUsername || '',
                                   sshPort: selectedServer.sshPort || 22,
                                   deployPath: selectedServer.deployPath || '',
-                                  sshAuthType: selectedServer.sshAuthType || 'password',
-                                  sshPassword: selectedServer.sshPassword || '',
-                                  sshPublicKey: selectedServer.sshPublicKey || ''
+                                  sshAuthType: 'password',
+                                  sshPassword: selectedServer.sshPassword || ''
                                 });
                               }}
                               style={{
@@ -1560,57 +1664,16 @@ export default function App() {
                               />
                             </div>
                             <div>
-                              <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>인증 방식</label>
-                              <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                                  <input
-                                    type="radio"
-                                    name="sshAuthType"
-                                    value="password"
-                                    checked={sshEditData.sshAuthType === 'password'}
-                                    onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
-                                    disabled={isSubmitting}
-                                  />
-                                  비밀번호
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                                  <input
-                                    type="radio"
-                                    name="sshAuthType"
-                                    value="key"
-                                    checked={sshEditData.sshAuthType === 'key'}
-                                    onChange={(e) => setSshEditData(prev => ({ ...prev, sshAuthType: e.target.value }))}
-                                    disabled={isSubmitting}
-                                  />
-                                  KEY 방식
-                                </label>
-                              </div>
+                              <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>비밀번호</label>
+                              <input
+                                type="password"
+                                className="form-input"
+                                value={sshEditData.sshPassword}
+                                onChange={(e) => setSshEditData(prev => ({ ...prev, sshPassword: e.target.value }))}
+                                style={{ fontSize: '0.875rem', padding: '0.375rem' }}
+                                disabled={isSubmitting}
+                              />
                             </div>
-                            {sshEditData.sshAuthType === 'password' ? (
-                              <div>
-                                <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>비밀번호</label>
-                                <input
-                                  type="password"
-                                  className="form-input"
-                                  value={sshEditData.sshPassword}
-                                  onChange={(e) => setSshEditData(prev => ({ ...prev, sshPassword: e.target.value }))}
-                                  style={{ fontSize: '0.875rem', padding: '0.375rem' }}
-                                  disabled={isSubmitting}
-                                />
-                              </div>
-                            ) : (
-                              <div>
-                                <label style={{ fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>공개키</label>
-                                <textarea
-                                  className="form-input"
-                                  value={sshEditData.sshPublicKey}
-                                  onChange={(e) => setSshEditData(prev => ({ ...prev, sshPublicKey: e.target.value }))}
-                                  placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
-                                  style={{ fontSize: '0.875rem', padding: '0.375rem', minHeight: '80px', fontFamily: 'monospace' }}
-                                  disabled={isSubmitting}
-                                />
-                              </div>
-                            )}
                             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                               <button
                                 type="button"
@@ -1701,7 +1764,7 @@ export default function App() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                               <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
-                              <span style={{ color: '#6b7280' }}>{selectedServer.sshAuthType === 'password' ? '비밀번호' : selectedServer.sshAuthType === 'key' ? 'KEY 방식' : '미설정'}</span>
+                              <span style={{ color: '#6b7280' }}>비밀번호</span>
                             </div>
                           </div>
                         )}
@@ -2403,13 +2466,13 @@ export default function App() {
                                   alignItems: 'center',
                                   gap: '0.25rem',
                                   padding: '0.25rem 0.5rem',
-                                  backgroundColor: deployedServer.sshAuthType === 'key' ? '#fef3c7' : '#dbeafe',
-                                  color: deployedServer.sshAuthType === 'key' ? '#92400e' : '#1e40af',
+                                  backgroundColor: '#dbeafe',
+                                  color: '#1e40af',
                                   borderRadius: '0.375rem',
                                   fontSize: '0.875rem',
                                   fontWeight: 500
                                 }}>
-                                  {deployedServer.sshAuthType === 'key' ? '🔑 키 인증' : '🔒 비밀번호 인증'}
+                                  🔒 비밀번호 인증
                                 </span>
                               </td>
                             </tr>

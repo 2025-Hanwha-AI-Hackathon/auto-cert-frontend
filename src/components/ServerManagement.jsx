@@ -326,63 +326,17 @@ export function ServerManagement({
 
                 <div className="form-group">
                   <label className="form-label">
-                    인증 방식
+                    비밀번호
                   </label>
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="sshAuthType"
-                        checked={serverFormData.sshAuthType === 'password'}
-                        onChange={() => setServerFormData(prev => ({ 
-                          ...prev, 
-                          sshAuthType: 'password',
-                          sshPublicKey: '' // 전환 시 공개키 초기화
-                        }))}
-                        style={{ accentColor: '#FF6600' }}
-                      />
-                      <span>비밀번호</span>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="sshAuthType"
-                        checked={serverFormData.sshAuthType === 'key'}
-                        onChange={() => setServerFormData(prev => ({ 
-                          ...prev, 
-                          sshAuthType: 'key',
-                          sshPassword: '' // 전환 시 비밀번호 초기화
-                        }))}
-                        style={{ accentColor: '#FF6600' }}
-                      />
-                      <span>KEY 방식</span>
-                    </label>
+                  <div>
+                    <input
+                      type="password"
+                      className="form-input"
+                      value={serverFormData.sshPassword}
+                      onChange={(e) => setServerFormData(prev => ({ ...prev, sshPassword: e.target.value }))}
+                      placeholder="SSH 비밀번호를 입력하세요"
+                    />
                   </div>
-
-                  {serverFormData.sshAuthType === 'password' ? (
-                    <div>
-                      <input
-                        type="password"
-                        className="form-input"
-                        value={serverFormData.sshPassword}
-                        onChange={(e) => setServerFormData(prev => ({ ...prev, sshPassword: e.target.value }))}
-                        placeholder="SSH 비밀번호를 입력하세요"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <textarea
-                        className="form-input"
-                        value={serverFormData.sshPublicKey}
-                        onChange={(e) => setServerFormData(prev => ({ ...prev, sshPublicKey: e.target.value }))}
-                        placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
-                        rows="6"
-                      />
-                      <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
-                        SSH 공개키를 입력하세요
-                      </small>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
