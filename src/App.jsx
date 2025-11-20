@@ -229,6 +229,7 @@ export default function App() {
             managerName: cert.admin || '',
             serverId: cert.serverId,
             deployedAt: cert.deployedAt,
+            updatedAt: cert.updatedAt,
             // 백엔드 원본 상태도 저장 (필요시 사용)
             rawStatus: cert.status,
             renewalAttempts: cert.renewalAttempts || 0,
@@ -608,6 +609,7 @@ export default function App() {
               managerName: apiCert.admin || cert?.managerName || '',
               serverId: apiCert.serverId || cert?.serverId,
               deployedAt: apiCert.deployedAt || cert?.deployedAt,
+              updatedAt: apiCert.updatedAt || cert?.updatedAt,
               rawStatus: apiCert.status,
               renewalAttempts: apiCert.renewalAttempts || 0,
               lastError: apiCert.lastError || null
@@ -2545,7 +2547,7 @@ export default function App() {
                             </tr>
                             <tr>
                               <th>설명</th>
-                              <td>{deployedServer.description || 'N/A'}</td>
+                              <td>{deployedServer.description || ''}</td>
                             </tr>
                             <tr>
                               <th>SSH 사용자명</th>
@@ -2579,7 +2581,7 @@ export default function App() {
                             </tr>
                             <tr>
                               <th>배포 시간</th>
-                              <td>{formatDate(selectedCertificate.deployedAt)}</td>
+                              <td>{formatDate(selectedCertificate.updatedAt || selectedCertificate.deployedAt)}</td>
                             </tr>
                           </tbody>
                         </table>
