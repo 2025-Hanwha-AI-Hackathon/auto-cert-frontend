@@ -3078,9 +3078,6 @@ export default function App() {
                   placeholder={certificateToDelete.name}
                   autoFocus
                 />
-                <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.5rem', display: 'block' }}>
-                  인증서 이름: <strong>{certificateToDelete.name}</strong>
-                </small>
               </div>
             </div>
             <div className="dialog-footer">
