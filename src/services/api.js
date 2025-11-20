@@ -415,14 +415,18 @@ export async function createServer(serverData) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      // 프론트엔드 형식을 백엔드 형식으로 변환
+      // 프론트엔드 형식을 백엔드 형식으로 변환 (모든 필수 필드 포함)
       const requestBody = {
         hostname: serverData.name || serverData.hostname || '',
         ipAddress: serverData.host || serverData.ipAddress || '',
         port: serverData.port || 22,
         webServerType: serverData.serverType || serverData.webServerType || 'nginx',
         username: serverData.sshUsername || serverData.username || '',
-        password: serverData.sshPassword || serverData.password || ''
+        password: serverData.sshPassword || serverData.password || '',
+        // 추가 필수 필드들
+        sshPort: serverData.sshPort || serverData.port || 22,
+        deployPath: serverData.deployPath || '',
+        description: serverData.description || ''
       };
       
       const url = `${API_BASE_URL}/api/v1/servers`;
@@ -532,14 +536,18 @@ export async function updateServer(id, serverData) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      // 프론트엔드 형식을 백엔드 형식으로 변환
+      // 프론트엔드 형식을 백엔드 형식으로 변환 (모든 필수 필드 포함)
       const requestBody = {
         hostname: serverData.name || serverData.hostname || '',
         ipAddress: serverData.host || serverData.ipAddress || '',
         port: serverData.port || 22,
         webServerType: serverData.serverType || serverData.webServerType || 'nginx',
         username: serverData.sshUsername || serverData.username || '',
-        password: serverData.sshPassword || serverData.password || ''
+        password: serverData.sshPassword || serverData.password || '',
+        // 추가 필수 필드들
+        sshPort: serverData.sshPort || serverData.port || 22,
+        deployPath: serverData.deployPath || '',
+        description: serverData.description || ''
       };
       
       const url = `${API_BASE_URL}/api/v1/servers/${id}`;

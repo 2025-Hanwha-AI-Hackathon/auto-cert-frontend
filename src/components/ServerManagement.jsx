@@ -27,8 +27,24 @@ export function ServerManagement({
   });
 
   const handleAddServer = () => {
-    if (!serverFormData.name.trim() || !serverFormData.host.trim()) {
-      alert('서버 이름과 호스트는 필수 입력 항목입니다.');
+    // 필수 필드 검증
+    if (!serverFormData.name.trim()) {
+      alert('서버 이름은 필수 입력 항목입니다.');
+      return;
+    }
+    
+    if (!serverFormData.host.trim()) {
+      alert('호스트(IP 또는 도메인)는 필수 입력 항목입니다.');
+      return;
+    }
+    
+    if (!serverFormData.port || serverFormData.port < 1 || serverFormData.port > 65535) {
+      alert('SSH 포트는 필수 입력 항목입니다. (1-65535 범위)');
+      return;
+    }
+    
+    if (!serverFormData.serverType) {
+      alert('서버 타입은 필수 입력 항목입니다.');
       return;
     }
 
@@ -37,8 +53,27 @@ export function ServerManagement({
       alert('서버 타입(기타)을 입력해주세요.');
       return;
     }
-
-    // SSH 정보는 서버 추가 시 필수가 아님
+    
+    // SSH 정보 필수 검증
+    if (!serverFormData.sshUsername.trim()) {
+      alert('SSH 사용자명은 필수 입력 항목입니다.');
+      return;
+    }
+    
+    if (!serverFormData.sshPort || serverFormData.sshPort < 1 || serverFormData.sshPort > 65535) {
+      alert('SSH 포트는 필수 입력 항목입니다. (1-65535 범위)');
+      return;
+    }
+    
+    if (!serverFormData.deployPath.trim()) {
+      alert('배포 경로는 필수 입력 항목입니다.');
+      return;
+    }
+    
+    if (!serverFormData.sshPassword.trim()) {
+      alert('비밀번호는 필수 입력 항목입니다.');
+      return;
+    }
 
     const serverDataToSave = {
       ...serverFormData,
@@ -231,7 +266,9 @@ export function ServerManagement({
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">SSH 포트</label>
+                <label className="form-label">
+                  SSH 포트 <span style={{ color: 'red' }}>*</span>
+                </label>
                 <input
                   type="number"
                   className="form-input"
@@ -287,7 +324,7 @@ export function ServerManagement({
                 
                 <div className="form-group">
                   <label className="form-label">
-                    SSH 사용자명
+                    SSH 사용자명 <span style={{ color: 'red' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -299,7 +336,9 @@ export function ServerManagement({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">SSH 포트</label>
+                  <label className="form-label">
+                    SSH 포트 <span style={{ color: 'red' }}>*</span>
+                  </label>
                   <input
                     type="number"
                     className="form-input"
@@ -313,7 +352,7 @@ export function ServerManagement({
 
                 <div className="form-group">
                   <label className="form-label">
-                    배포 경로
+                    배포 경로 <span style={{ color: 'red' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -326,7 +365,7 @@ export function ServerManagement({
 
                 <div className="form-group">
                   <label className="form-label">
-                    비밀번호
+                    비밀번호 <span style={{ color: 'red' }}>*</span>
                   </label>
                   <div>
                     <input
