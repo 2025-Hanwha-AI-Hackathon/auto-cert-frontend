@@ -336,12 +336,18 @@ export default function App() {
     try {
       // 1. 인증서 갱신 중
       setRenewProgress({ step: 1, message: '인증서 갱신 중...', error: null, type: 'renew' });
+      const step1StartTime = Date.now();
       
       // 백엔드 API로 인증서 갱신 (비개발 모드에서만)
       let renewedCert = null;
       if (!IS_DEV_MODE) {
         try {
           renewedCert = await renewCertificateAPI(Number(selectedCertId));
+          // 최소 1.5초 보장
+          const elapsedTime = Date.now() - step1StartTime;
+          if (elapsedTime < 1500) {
+            await new Promise(resolve => setTimeout(resolve, 1500 - elapsedTime));
+          }
         } catch (error) {
           console.error('인증서 갱신 실패:', error);
           setRenewProgress({ 
@@ -363,7 +369,7 @@ export default function App() {
           return;
         }
       } else {
-        // 개발 모드: 시뮬레이션 지연
+        // 개발 모드: 시뮬레이션 지연 (최소 1.5초)
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
       
@@ -423,7 +429,7 @@ export default function App() {
 
       // 2. 파일 배포 중
       setRenewProgress({ step: 2, message: '파일 배포 중...', error: null, type: 'renew' });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 시뮬레이션 지연
+      await new Promise(resolve => setTimeout(resolve, 1500)); // 최소 1.5초 보장
       
       // 취소 확인
       if (renewCancelledRef.current) {
@@ -443,7 +449,7 @@ export default function App() {
 
       // 3. 갱신 완료
       setRenewProgress({ step: 3, message: '갱신 완료!', error: null, type: 'renew' });
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 완료 메시지 표시 시간 (2초)
+      await new Promise(resolve => setTimeout(resolve, 1500)); // 최소 1.5초 보장
 
       // 취소 확인 (완료 전 마지막 확인)
       if (renewCancelledRef.current) {
@@ -753,19 +759,24 @@ export default function App() {
     try {
       setIsSubmitting(true);
       
-      // 서버 정보 검증 (서버 선택 시 서버에 SSH 정보가 있는지 확인)
-      if (addFormData.serverId) {
-        const selectedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
-        if (!selectedServer) {
-          alert('선택한 서버를 찾을 수 없습니다.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (!selectedServer.sshUsername || !selectedServer.deployPath) {
-          alert('선택한 서버에 SSH 정보가 설정되지 않았습니다. 서버 관리에서 SSH 정보를 설정해주세요.');
-          setIsSubmitting(false);
-          return;
-        }
+      // 스웨거 스펙에 따라 serverId는 필수 필드
+      if (!addFormData.serverId) {
+        alert('서버를 선택해주세요.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // 서버 정보 검증
+      const selectedServer = servers.find(s => String(s.id) === String(addFormData.serverId));
+      if (!selectedServer) {
+        alert('선택한 서버를 찾을 수 없습니다.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!selectedServer.sshUsername || !selectedServer.deployPath) {
+        alert('선택한 서버에 SSH 정보가 설정되지 않았습니다. 서버 관리에서 SSH 정보를 설정해주세요.');
+        setIsSubmitting(false);
+        return;
       }
 
       // 담당자 정보 검증 (필수)
@@ -781,7 +792,11 @@ export default function App() {
         try {
           createdCert = await createCertificateAPI({
             domain: addFormData.domain.trim(),
-            challengeType: addFormData.challengeType === 'DNS' ? 'DNS-01' : 'HTTP-01'
+            serverId: addFormData.serverId || null,
+            challengeType: addFormData.challengeType === 'DNS' ? 'DNS-01' : 'HTTP-01',
+            managerName: addFormData.managerName.trim(),
+            alarmDaysBefore: addFormData.alarmDaysBefore || 7,
+            autoDeploy: addFormData.deployImmediately || false // "바로 적용" 선택 시에만 true
           });
         } catch (error) {
           console.error('인증서 생성 실패:', error);

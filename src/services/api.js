@@ -190,11 +190,14 @@ export async function createCertificate(certificateData) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     // 스웨거 스펙에 맞게 변수명 통일 (CertificateCreateRequest 형식)
+    // serverId는 필수 필드, autoDeploy는 "바로 적용" 선택 시에만 true
     const requestBody = {
       domain: certificateData.domain,
+      serverId: Number(certificateData.serverId),
       challengeType: certificateData.challengeType || null,
       admin: certificateData.managerName || certificateData.admin || null,
-      alertDaysBeforeExpiry: certificateData.alarmDaysBefore || certificateData.alertDaysBeforeExpiry || 7
+      alertDaysBeforeExpiry: certificateData.alarmDaysBefore || certificateData.alertDaysBeforeExpiry || 7,
+      autoDeploy: certificateData.autoDeploy === true // 명시적으로 true일 때만 true
     };
     
     try {
@@ -233,13 +236,14 @@ export async function createCertificate(certificateData) {
 /**
  * 인증서 갱신
  * @param {number} id - 인증서 ID
+ * @param {boolean} autoDeploy - 자동 배포 여부 (기본값: false)
  * @returns {Promise<Object>} 갱신된 인증서 정보 (CertificateResponse 형식)
  */
-export async function renewCertificate(id) {
+export async function renewCertificate(id, autoDeploy = false) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const url = `${API_BASE_URL}/api/v1/certificates/${id}/renew`;
+      const url = `${API_BASE_URL}/api/v1/certificates/${id}/renew${autoDeploy ? '?autoDeploy=true' : ''}`;
       console.log('[API 호출] POST', url);
       const response = await fetch(url, {
         method: 'POST',

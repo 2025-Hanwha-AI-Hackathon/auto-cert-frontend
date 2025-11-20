@@ -40,13 +40,13 @@
 .server-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 0.5rem;
 }
 
 .server-card-info {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   flex: 1;
 }
@@ -54,7 +54,6 @@
 .server-icon {
   color: #6366f1;
   flex-shrink: 0;
-  margin-top: 0.125rem;
 }
 
 .server-card-info > div {
