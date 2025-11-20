@@ -299,21 +299,60 @@ export async function checkHealth() {
 /**
  * 서버 목록 조회
  * @returns {Promise<Array>} 서버 목록
- * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function getServers() {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/servers`);
-      return handleResponse(response);
+      const servers = await handleResponse(response);
+      
+      // 백엔드 응답을 프론트엔드 형식으로 변환
+      if (Array.isArray(servers)) {
+        return servers.map(server => ({
+          id: server.id,
+          name: server.hostname || server.name || `서버 #${server.id}`,
+          host: server.ipAddress || server.host || '',
+          port: server.port || 22,
+          serverType: server.webServerType || server.serverType || 'nginx',
+          description: server.description || '',
+          sshUsername: server.username || server.sshUsername || '',
+          sshPort: server.sshPort || server.port || 22,
+          deployPath: server.deployPath || '',
+          sshAuthType: 'password', // 백엔드는 비밀번호만 지원
+          sshPassword: '', // 보안상 비워둠
+          sshPublicKey: '',
+          sshUsers: server.sshUsers || []
+        }));
+      }
+      
+      // PageResponse 형식인 경우
+      if (servers && servers.content) {
+        return servers.content.map(server => ({
+          id: server.id,
+          name: server.hostname || server.name || `서버 #${server.id}`,
+          host: server.ipAddress || server.host || '',
+          port: server.port || 22,
+          serverType: server.webServerType || server.serverType || 'nginx',
+          description: server.description || '',
+          sshUsername: server.username || server.sshUsername || '',
+          sshPort: server.sshPort || server.port || 22,
+          deployPath: server.deployPath || '',
+          sshAuthType: 'password',
+          sshPassword: '',
+          sshPublicKey: '',
+          sshUsers: server.sshUsers || []
+        }));
+      }
+      
+      return [];
     } catch (error) {
       console.error('서버 목록 조회 실패:', error);
       return [];
     }
   }
   
-  // 개발 모드: 더미 데이터 반환 (백엔드 미구현)
+  // 개발 모드: 더미 데이터 반환
   return Promise.resolve([
     {
       id: 1,
@@ -343,7 +382,7 @@ export async function getServers() {
       sshUsername: 'admin',
       sshPort: 22,
       deployPath: '/opt/tomcat/conf',
-      sshAuthType: 'key',
+      sshAuthType: 'password',
       sshPassword: '',
       sshPublicKey: '',
       sshUsers: [
@@ -357,25 +396,54 @@ export async function getServers() {
  * 서버 추가
  * @param {Object} serverData - 서버 데이터
  * @returns {Promise<Object>} 생성된 서버 정보
- * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function createServer(serverData) {
-  // TODO: 백엔드 API 구현 후 주석 해제
-  // try {
-  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //     },
-  //     body: JSON.stringify(serverData),
-  //   });
-  //   return handleResponse(response);
-  // } catch (error) {
-  //   console.error('서버 추가 실패:', error);
-  //   throw error;
-  // }
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      // 프론트엔드 형식을 백엔드 형식으로 변환
+      const requestBody = {
+        hostname: serverData.name || serverData.hostname || '',
+        ipAddress: serverData.host || serverData.ipAddress || '',
+        port: serverData.port || 22,
+        webServerType: serverData.serverType || serverData.webServerType || 'nginx',
+        username: serverData.sshUsername || serverData.username || '',
+        password: serverData.sshPassword || serverData.password || ''
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      const createdServer = await handleResponse(response);
+      
+      // 백엔드 응답을 프론트엔드 형식으로 변환
+      return {
+        id: createdServer.id,
+        name: createdServer.hostname || createdServer.name || `서버 #${createdServer.id}`,
+        host: createdServer.ipAddress || createdServer.host || '',
+        port: createdServer.port || 22,
+        serverType: createdServer.webServerType || createdServer.serverType || 'nginx',
+        description: serverData.description || '',
+        sshUsername: createdServer.username || createdServer.sshUsername || '',
+        sshPort: createdServer.sshPort || createdServer.port || 22,
+        deployPath: serverData.deployPath || '',
+        sshAuthType: 'password',
+        sshPassword: '',
+        sshPublicKey: '',
+        sshUsers: []
+      };
+    } catch (error) {
+      console.error('서버 추가 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환 (백엔드 미구현)
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 500));
   return Promise.resolve({
     id: Date.now(),
@@ -385,29 +453,110 @@ export async function createServer(serverData) {
 }
 
 /**
+ * 서버 상세 조회
+ * @param {number} id - 서버 ID
+ * @returns {Promise<Object>} 서버 상세 정보
+ */
+export async function getServer(id) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`);
+      const server = await handleResponse(response);
+      
+      // 백엔드 응답을 프론트엔드 형식으로 변환
+      return {
+        id: server.id,
+        name: server.hostname || server.name || `서버 #${server.id}`,
+        host: server.ipAddress || server.host || '',
+        port: server.port || 22,
+        serverType: server.webServerType || server.serverType || 'nginx',
+        description: server.description || '',
+        sshUsername: server.username || server.sshUsername || '',
+        sshPort: server.sshPort || server.port || 22,
+        deployPath: server.deployPath || '',
+        sshAuthType: 'password',
+        sshPassword: '',
+        sshPublicKey: '',
+        sshUsers: server.sshUsers || []
+      };
+    } catch (error) {
+      console.error('서버 상세 조회 실패:', error);
+      throw error;
+    }
+  }
+  
+  // 개발 모드: 더미 데이터 반환
+  return Promise.resolve({
+    id: parseInt(id),
+    name: '프로덕션 서버',
+    host: '192.168.1.100',
+    port: 22,
+    serverType: 'nginx',
+    description: '메인 프로덕션 서버',
+    sshUsername: 'root',
+    sshPort: 22,
+    deployPath: '/etc/nginx/ssl',
+    sshAuthType: 'password',
+    sshPassword: '',
+    sshPublicKey: '',
+    sshUsers: []
+  });
+}
+
+/**
  * 서버 수정
  * @param {number} id - 서버 ID
  * @param {Object} serverData - 서버 데이터
  * @returns {Promise<Object>} 수정된 서버 정보
- * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function updateServer(id, serverData) {
-  // TODO: 백엔드 API 구현 후 주석 해제
-  // try {
-  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
-  //     method: 'PUT',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //     },
-  //     body: JSON.stringify(serverData),
-  //   });
-  //   return handleResponse(response);
-  // } catch (error) {
-  //   console.error('서버 수정 실패:', error);
-  //   throw error;
-  // }
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      // 프론트엔드 형식을 백엔드 형식으로 변환
+      const requestBody = {
+        hostname: serverData.name || serverData.hostname || '',
+        ipAddress: serverData.host || serverData.ipAddress || '',
+        port: serverData.port || 22,
+        webServerType: serverData.serverType || serverData.webServerType || 'nginx',
+        username: serverData.sshUsername || serverData.username || '',
+        password: serverData.sshPassword || serverData.password || ''
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      const updatedServer = await handleResponse(response);
+      
+      // 백엔드 응답을 프론트엔드 형식으로 변환
+      return {
+        id: updatedServer.id || parseInt(id),
+        name: updatedServer.hostname || updatedServer.name || serverData.name || `서버 #${id}`,
+        host: updatedServer.ipAddress || updatedServer.host || serverData.host || '',
+        port: updatedServer.port || serverData.port || 22,
+        serverType: updatedServer.webServerType || updatedServer.serverType || serverData.serverType || 'nginx',
+        description: serverData.description || '',
+        sshUsername: updatedServer.username || updatedServer.sshUsername || serverData.sshUsername || '',
+        sshPort: updatedServer.sshPort || updatedServer.port || serverData.sshPort || 22,
+        deployPath: serverData.deployPath || '',
+        sshAuthType: 'password',
+        sshPassword: '',
+        sshPublicKey: '',
+        sshUsers: serverData.sshUsers || []
+      };
+    } catch (error) {
+      console.error('서버 수정 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환 (백엔드 미구현)
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 500));
   return Promise.resolve({ id: parseInt(id), ...serverData });
 }
@@ -416,26 +565,28 @@ export async function updateServer(id, serverData) {
  * 서버 삭제
  * @param {number} id - 서버 ID
  * @returns {Promise<void>}
- * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
 export async function deleteServer(id) {
-  // TODO: 백엔드 API 구현 후 주석 해제
-  // try {
-  //   const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
-  //     method: 'DELETE',
-  //   });
-  //   
-  //   if (response.status === 204 || response.status === 200) {
-  //     return;
-  //   }
-  //   
-  //   return handleResponse(response);
-  // } catch (error) {
-  //   console.error('서버 삭제 실패:', error);
-  //   throw error;
-  // }
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
+        method: 'DELETE',
+      });
+      
+      // 204 No Content 또는 200 OK 모두 처리
+      if (response.status === 204 || response.status === 200) {
+        return;
+      }
+      
+      return handleResponse(response);
+    } catch (error) {
+      console.error('서버 삭제 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환 (백엔드 미구현)
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 300));
   return Promise.resolve();
 }
