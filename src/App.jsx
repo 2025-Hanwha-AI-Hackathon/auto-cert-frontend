@@ -1020,42 +1020,50 @@ export default function App() {
   // 서버 관리 핸들러
   const handleAddServer = async (serverData) => {
     try {
-      // 더미 서버 데이터 생성
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newServer = {
-        id: Date.now(),
-        ...serverData,
-      };
+      // 백엔드 API로 서버 생성
+      const createdServer = await createServer(serverData);
       
-      setServers(prev => [...prev, newServer]);
+      // 서버 목록 재조회
+      await loadServers();
+      
       alert("서버가 성공적으로 추가되었습니다!");
     } catch (err) {
       console.error('서버 추가 실패:', err);
-      alert(`서버 추가에 실패했습니다: ${err.message}`);
+      alert(`서버 추가에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
     }
   };
 
   const handleUpdateServer = async (serverData) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const updatedServer = { ...serverData };
+      // 백엔드 API로 서버 수정
+      const updatedServer = await updateServerAPI(serverData.id, serverData);
       
-      setServers(prev => prev.map(s => String(s.id) === String(updatedServer.id) ? updatedServer : s));
-      alert("SSH 정보가 변경되었습니다!");
+      // 서버 목록 재조회
+      await loadServers();
+      
+      alert("서버 정보가 성공적으로 수정되었습니다!");
     } catch (err) {
       console.error('서버 수정 실패:', err);
-      alert(`서버 수정에 실패했습니다: ${err.message}`);
+      alert(`서버 수정에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
     }
   };
 
   const handleDeleteServer = async (serverId) => {
+    if (!confirm('정말로 이 서버를 삭제하시겠습니까?')) {
+      return;
+    }
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setServers(prev => prev.filter(s => String(s.id) !== String(serverId)));
+      // 백엔드 API로 서버 삭제
+      await deleteServerAPI(serverId);
+      
+      // 서버 목록 재조회
+      await loadServers();
+      
       alert("서버가 성공적으로 삭제되었습니다!");
     } catch (err) {
       console.error('서버 삭제 실패:', err);
-      alert(`서버 삭제에 실패했습니다: ${err.message}`);
+      alert(`서버 삭제에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
     }
   };
 
