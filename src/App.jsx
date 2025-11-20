@@ -162,6 +162,9 @@ export default function App() {
   const [serverToEdit, setServerToEdit] = useState(null);
   const [deleteButtonHoverTime, setDeleteButtonHoverTime] = useState(0);
   const deleteButtonHoverTimerRef = useRef(null);
+  const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
+  const [certificateToDelete, setCertificateToDelete] = useState(null);
 
   // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
@@ -379,10 +382,10 @@ export default function App() {
       if (!IS_DEV_MODE) {
         try {
           renewedCert = await renewCertificateAPI(Number(selectedCertId), renewFormData.deployImmediately || false);
-          // 최소 1.5초 보장
+          // 최소 5초 보장
           const elapsedTime = Date.now() - step1StartTime;
-          if (elapsedTime < 1500) {
-            await new Promise(resolve => setTimeout(resolve, 1500 - elapsedTime));
+          if (elapsedTime < 5000) {
+            await new Promise(resolve => setTimeout(resolve, 5000 - elapsedTime));
           }
         } catch (error) {
           console.error('인증서 갱신 실패:', error);
@@ -405,8 +408,8 @@ export default function App() {
           return;
         }
       } else {
-        // 개발 모드: 시뮬레이션 지연 (최소 1.5초)
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // 개발 모드: 시뮬레이션 지연 (최소 5초)
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
       
       // 취소 확인
@@ -465,7 +468,13 @@ export default function App() {
 
       // 2. 파일 배포 중
       setRenewProgress({ step: 2, message: '파일 배포 중...', error: null, type: 'renew' });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 최소 1.5초 보장
+      const step2StartTime = Date.now();
+      // 실제 배포 작업이 있다면 여기서 수행
+      // 최소 5초 보장
+      const step2ElapsedTime = Date.now() - step2StartTime;
+      if (step2ElapsedTime < 5000) {
+        await new Promise(resolve => setTimeout(resolve, 5000 - step2ElapsedTime));
+      }
       
       // 취소 확인
       if (renewCancelledRef.current) {
@@ -485,7 +494,7 @@ export default function App() {
 
       // 3. 갱신 완료
       setRenewProgress({ step: 3, message: '갱신 완료!', error: null, type: 'renew' });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 최소 1.5초 보장
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 최소 5초 보장
 
       // 취소 확인 (완료 전 마지막 확인)
       if (renewCancelledRef.current) {
@@ -896,7 +905,7 @@ export default function App() {
       } else {
         // 배포 없이 인증서 생성만 완료
         setRenewProgress({ step: 3, message: '인증서 생성 완료!', error: null, type: 'add' });
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 최소 5초 보장
         
         // 인증서 목록 재로드 (최신 상태 가져오기)
         if (!IS_DEV_MODE) {
@@ -937,7 +946,13 @@ export default function App() {
     try {
       // 1. 인증서 생성 중
       setRenewProgress({ step: 1, message: '인증서 생성 중...', error: null, type: 'add' });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 시뮬레이션 지연
+      const step1StartTime = Date.now();
+      // 실제 생성 작업이 있다면 여기서 수행
+      // 최소 5초 보장
+      const step1ElapsedTime = Date.now() - step1StartTime;
+      if (step1ElapsedTime < 5000) {
+        await new Promise(resolve => setTimeout(resolve, 5000 - step1ElapsedTime));
+      }
       
       // 취소 확인
       if (addCancelledRef.current) {
@@ -959,7 +974,13 @@ export default function App() {
 
       // 2. 파일 배포 중
       setRenewProgress({ step: 2, message: '파일 배포 중...', error: null, type: 'add' });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 시뮬레이션 지연
+      const step2StartTime = Date.now();
+      // 실제 배포 작업이 있다면 여기서 수행
+      // 최소 5초 보장
+      const step2ElapsedTime = Date.now() - step2StartTime;
+      if (step2ElapsedTime < 5000) {
+        await new Promise(resolve => setTimeout(resolve, 5000 - step2ElapsedTime));
+      }
       
       // 취소 확인
       if (addCancelledRef.current) {
@@ -981,7 +1002,7 @@ export default function App() {
 
       // 3. 완료
       setRenewProgress({ step: 3, message: '완료!', error: null, type: 'add' });
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 완료 메시지 표시 시간 (2초)
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 최소 5초 보장
 
       // 취소 확인 (완료 전 마지막 확인)
       if (addCancelledRef.current) {
@@ -1143,8 +1164,8 @@ export default function App() {
     }
   };
 
-  // 인증서 삭제 핸들러
-  const handleDeleteCertificate = async (certId) => {
+  // 인증서 삭제 확인 다이얼로그 열기
+  const openDeleteConfirmDialog = (certId) => {
     // 타이머 정리
     if (deleteButtonHoverTimerRef.current) {
       clearInterval(deleteButtonHoverTimerRef.current);
@@ -1152,19 +1173,36 @@ export default function App() {
     }
     setDeleteButtonHoverTime(0);
     
-    if (!confirm('정말로 이 인증서를 삭제하시겠습니까?\n삭제된 인증서는 복구할 수 없습니다.')) {
+    const cert = certificates.find(c => c.id === certId);
+    if (cert) {
+      setCertificateToDelete(cert);
+      setDeleteConfirmInput('');
+      setDeleteConfirmDialogOpen(true);
+    }
+  };
+
+  // 인증서 삭제 핸들러
+  const handleDeleteCertificate = async () => {
+    if (!certificateToDelete) return;
+    
+    // 입력값 검증
+    if (deleteConfirmInput.trim() !== certificateToDelete.name.trim()) {
+      alert(`인증서 이름이 일치하지 않습니다. 정확히 "${certificateToDelete.name}"를 입력해주세요.`);
       return;
     }
     
     try {
-      await deleteCertificateAPI(Number(certId));
+      await deleteCertificateAPI(Number(certificateToDelete.id));
       
       // 인증서 목록에서 제거
-      setCertificates(prev => prev.filter(cert => cert.id !== certId));
+      setCertificates(prev => prev.filter(cert => cert.id !== certificateToDelete.id));
       
-      // 상세보기 다이얼로그 닫기
+      // 다이얼로그 닫기
+      setDeleteConfirmDialogOpen(false);
       setDetailDialogOpen(false);
       setSelectedCertificate(null);
+      setCertificateToDelete(null);
+      setDeleteConfirmInput('');
       
       alert("인증서가 성공적으로 삭제되었습니다!");
       
@@ -1611,7 +1649,7 @@ export default function App() {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
-                                    <span style={{ color: '#6b7280' }}>비밀번호</span>
+                                    <span style={{ color: '#6b7280' }}>ID/PASSWORD</span>
                                   </div>
                                 </div>
                               )}
@@ -1965,7 +2003,7 @@ export default function App() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                               <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
-                              <span style={{ color: '#6b7280' }}>비밀번호</span>
+                              <span style={{ color: '#6b7280' }}>ID/PASSWORD</span>
                             </div>
                           </div>
                         )}
@@ -2519,7 +2557,7 @@ export default function App() {
                 className={`btn btn-danger delete-certificate-btn ${deleteButtonHoverTime >= 2000 ? 'active' : ''}`}
                 onClick={() => {
                   if (deleteButtonHoverTime >= 2000) {
-                    handleDeleteCertificate(selectedCertificate.id);
+                    openDeleteConfirmDialog(selectedCertificate.id);
                   } else {
                     alert('삭제 버튼 위에 마우스를 2초 이상 올려주세요.');
                   }
@@ -2763,7 +2801,7 @@ export default function App() {
                                   fontSize: '0.875rem',
                                   fontWeight: 500
                                 }}>
-                                  🔒 비밀번호 인증
+                                  🔒 ID/PASSWORD
                                 </span>
                               </td>
                             </tr>
@@ -2989,6 +3027,85 @@ export default function App() {
                 }}
               >
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 인증서 삭제 확인 다이얼로그 */}
+      {deleteConfirmDialogOpen && certificateToDelete && (
+        <div 
+          className="dialog-overlay" 
+          onMouseDown={(e) => {
+            // 다이얼로그 내부에서 마우스 다운이 시작되었는지 확인
+            if (e.target === e.currentTarget) {
+              setMouseDownTarget(e.target);
+            } else {
+              setMouseDownTarget(null);
+            }
+          }}
+          onClick={(e) => {
+            // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
+            // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
+            if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+              setDeleteConfirmDialogOpen(false);
+              setCertificateToDelete(null);
+              setDeleteConfirmInput('');
+            }
+            setMouseDownTarget(null);
+          }}
+        >
+          <div className="dialog-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="dialog-header">
+              <div>
+                <h2 className="dialog-title">인증서 삭제 확인</h2>
+                <p className="dialog-description" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+                  이 작업은 되돌릴 수 없습니다. 정말로 이 인증서를 삭제하시겠습니까?
+                </p>
+              </div>
+            </div>
+            <div className="dialog-body">
+              <div className="form-group">
+                <label className="form-label">
+                  삭제를 확인하려면 인증서 이름을 입력하세요:
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={deleteConfirmInput}
+                  onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                  placeholder={certificateToDelete.name}
+                  autoFocus
+                />
+                <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.5rem', display: 'block' }}>
+                  인증서 이름: <strong>{certificateToDelete.name}</strong>
+                </small>
+              </div>
+            </div>
+            <div className="dialog-footer">
+              <button 
+                className="btn btn-outline" 
+                onClick={() => {
+                  setDeleteConfirmDialogOpen(false);
+                  setCertificateToDelete(null);
+                  setDeleteConfirmInput('');
+                }}
+              >
+                취소
+              </button>
+              <button 
+                className="btn btn-danger" 
+                onClick={handleDeleteCertificate}
+                disabled={deleteConfirmInput.trim() !== certificateToDelete.name.trim()}
+                style={{ 
+                  backgroundColor: deleteConfirmInput.trim() === certificateToDelete.name.trim() ? '#ef4444' : '#fee2e2',
+                  color: 'white',
+                  borderColor: deleteConfirmInput.trim() === certificateToDelete.name.trim() ? '#ef4444' : '#fecaca',
+                  cursor: deleteConfirmInput.trim() === certificateToDelete.name.trim() ? 'pointer' : 'not-allowed'
+                }}
+              >
+                삭제
               </button>
             </div>
           </div>
