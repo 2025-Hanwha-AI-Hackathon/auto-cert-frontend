@@ -157,6 +157,7 @@ export default function App() {
   const [isLoadingTimeout, setIsLoadingTimeout] = useState(false);
   const loadingTimeoutRef = useRef(null);
   const [isLoadingServers, setIsLoadingServers] = useState(false);
+  const [isAddingServer, setIsAddingServer] = useState(false);
 
   // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
@@ -1070,6 +1071,7 @@ export default function App() {
   // 서버 관리 핸들러
   const handleAddServer = async (serverData) => {
     try {
+      setIsAddingServer(true);
       setIsLoadingServers(true);
       // 백엔드 API로 서버 생성
       const createdServer = await createServer(serverData);
@@ -1082,6 +1084,9 @@ export default function App() {
       console.error('서버 추가 실패:', err);
       alert(`서버 추가에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
       setIsLoadingServers(false);
+      setIsAddingServer(false);
+    } finally {
+      setIsAddingServer(false);
     }
   };
 
@@ -1267,6 +1272,7 @@ export default function App() {
             onUpdateServer={handleUpdateServer}
             onDeleteServer={handleDeleteServer}
             isLoading={isLoadingServers}
+            isAddingServer={isAddingServer}
           />
         )}
       </main>
