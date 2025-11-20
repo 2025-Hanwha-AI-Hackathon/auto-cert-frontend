@@ -180,7 +180,7 @@ export async function getCertificate(id) {
 }
 
 /**
- * 인증서 생성
+ * 인증서 생성ㄹ
  * @param {Object} certificateData - 인증서 생성 데이터
  * @param {string} certificateData.domain - 도메인 (필수)
  * @param {string} certificateData.challengeType - 챌린지 타입 (선택, "dns-01" 또는 "http-01")
@@ -189,10 +189,12 @@ export async function getCertificate(id) {
 export async function createCertificate(certificateData) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
-    // 백엔드 API 형식에 맞게 변환
+    // 스웨거 스펙에 맞게 변수명 통일 (CertificateCreateRequest 형식)
     const requestBody = {
       domain: certificateData.domain,
-      challengeType: certificateData.challengeType || null
+      challengeType: certificateData.challengeType || null,
+      admin: certificateData.managerName || certificateData.admin || null,
+      alertDaysBeforeExpiry: certificateData.alarmDaysBefore || certificateData.alertDaysBeforeExpiry || 7
     };
     
     try {
@@ -321,17 +323,17 @@ export async function getServers() {
       const response = await fetch(url);
       const servers = await handleResponse(response);
       
-      // 백엔드 응답을 프론트엔드 형식으로 변환
+      // 스웨거 스펙에 맞게 응답 변환 (ServerResponse -> 프론트엔드 형식)
       if (Array.isArray(servers)) {
         return servers.map(server => ({
           id: server.id,
-          name: server.hostname || server.name || `서버 #${server.id}`,
-          host: server.ipAddress || server.host || '',
+          name: server.name || `서버 #${server.id}`,
+          host: server.ipAddress || '',
           port: server.port || 22,
-          serverType: server.webServerType || server.serverType || 'nginx',
+          serverType: server.webServerType || 'nginx',
           description: server.description || '',
-          sshUsername: server.username || server.sshUsername || '',
-          sshPort: server.sshPort || server.port || 22,
+          sshUsername: server.username || '',
+          sshPort: server.port || 22, // ServerResponse에는 port만 있음
           deployPath: server.deployPath || '',
           sshAuthType: 'password', // 백엔드는 비밀번호만 지원
           sshPassword: '', // 보안상 비워둠
@@ -344,13 +346,13 @@ export async function getServers() {
       if (servers && servers.content) {
         return servers.content.map(server => ({
           id: server.id,
-          name: server.hostname || server.name || `서버 #${server.id}`,
-          host: server.ipAddress || server.host || '',
+          name: server.name || `서버 #${server.id}`,
+          host: server.ipAddress || '',
           port: server.port || 22,
-          serverType: server.webServerType || server.serverType || 'nginx',
+          serverType: server.webServerType || 'nginx',
           description: server.description || '',
-          sshUsername: server.username || server.sshUsername || '',
-          sshPort: server.sshPort || server.port || 22,
+          sshUsername: server.username || '',
+          sshPort: server.port || 22, // ServerResponse에는 port만 있음
           deployPath: server.deployPath || '',
           sshAuthType: 'password',
           sshPassword: '',
@@ -415,16 +417,14 @@ export async function createServer(serverData) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      // 프론트엔드 형식을 백엔드 형식으로 변환 (모든 필수 필드 포함)
+      // 스웨거 스펙에 맞게 변수명 통일 (ServerCreateRequest 형식)
       const requestBody = {
-        hostname: serverData.name || serverData.hostname || '',
+        name: serverData.name || '',
         ipAddress: serverData.host || serverData.ipAddress || '',
         port: serverData.port || 22,
         webServerType: serverData.serverType || serverData.webServerType || 'nginx',
         username: serverData.sshUsername || serverData.username || '',
         password: serverData.sshPassword || serverData.password || '',
-        // 추가 필수 필드들
-        sshPort: serverData.sshPort || serverData.port || 22,
         deployPath: serverData.deployPath || '',
         description: serverData.description || ''
       };
@@ -441,17 +441,17 @@ export async function createServer(serverData) {
       
       const createdServer = await handleResponse(response);
       
-      // 백엔드 응답을 프론트엔드 형식으로 변환
+      // 스웨거 스펙에 맞게 응답 변환 (ServerResponse -> 프론트엔드 형식)
       return {
         id: createdServer.id,
-        name: createdServer.hostname || createdServer.name || `서버 #${createdServer.id}`,
-        host: createdServer.ipAddress || createdServer.host || '',
+        name: createdServer.name || `서버 #${createdServer.id}`,
+        host: createdServer.ipAddress || '',
         port: createdServer.port || 22,
-        serverType: createdServer.webServerType || createdServer.serverType || 'nginx',
-        description: serverData.description || '',
-        sshUsername: createdServer.username || createdServer.sshUsername || '',
-        sshPort: createdServer.sshPort || createdServer.port || 22,
-        deployPath: serverData.deployPath || '',
+        serverType: createdServer.webServerType || 'nginx',
+        description: createdServer.description || '',
+        sshUsername: createdServer.username || '',
+        sshPort: createdServer.port || 22, // ServerResponse에는 port만 있음
+        deployPath: createdServer.deployPath || '',
         sshAuthType: 'password',
         sshPassword: '',
         sshPublicKey: '',
@@ -486,16 +486,16 @@ export async function getServer(id) {
       const response = await fetch(url);
       const server = await handleResponse(response);
       
-      // 백엔드 응답을 프론트엔드 형식으로 변환
+      // 스웨거 스펙에 맞게 응답 변환 (ServerResponse -> 프론트엔드 형식)
       return {
         id: server.id,
-        name: server.hostname || server.name || `서버 #${server.id}`,
-        host: server.ipAddress || server.host || '',
+        name: server.name || `서버 #${server.id}`,
+        host: server.ipAddress || '',
         port: server.port || 22,
-        serverType: server.webServerType || server.serverType || 'nginx',
+        serverType: server.webServerType || 'nginx',
         description: server.description || '',
-        sshUsername: server.username || server.sshUsername || '',
-        sshPort: server.sshPort || server.port || 22,
+        sshUsername: server.username || '',
+        sshPort: server.port || 22, // ServerResponse에는 port만 있음
         deployPath: server.deployPath || '',
         sshAuthType: 'password',
         sshPassword: '',
@@ -536,16 +536,14 @@ export async function updateServer(id, serverData) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      // 프론트엔드 형식을 백엔드 형식으로 변환 (모든 필수 필드 포함)
+      // 스웨거 스펙에 맞게 변수명 통일 (ServerUpdateRequest 형식)
       const requestBody = {
-        hostname: serverData.name || serverData.hostname || '',
+        name: serverData.name || '',
         ipAddress: serverData.host || serverData.ipAddress || '',
         port: serverData.port || 22,
         webServerType: serverData.serverType || serverData.webServerType || 'nginx',
         username: serverData.sshUsername || serverData.username || '',
         password: serverData.sshPassword || serverData.password || '',
-        // 추가 필수 필드들
-        sshPort: serverData.sshPort || serverData.port || 22,
         deployPath: serverData.deployPath || '',
         description: serverData.description || ''
       };
@@ -562,17 +560,17 @@ export async function updateServer(id, serverData) {
       
       const updatedServer = await handleResponse(response);
       
-      // 백엔드 응답을 프론트엔드 형식으로 변환
+      // 스웨거 스펙에 맞게 응답 변환 (ServerResponse -> 프론트엔드 형식)
       return {
         id: updatedServer.id || parseInt(id),
-        name: updatedServer.hostname || updatedServer.name || serverData.name || `서버 #${id}`,
-        host: updatedServer.ipAddress || updatedServer.host || serverData.host || '',
+        name: updatedServer.name || serverData.name || `서버 #${id}`,
+        host: updatedServer.ipAddress || serverData.host || '',
         port: updatedServer.port || serverData.port || 22,
-        serverType: updatedServer.webServerType || updatedServer.serverType || serverData.serverType || 'nginx',
-        description: serverData.description || '',
-        sshUsername: updatedServer.username || updatedServer.sshUsername || serverData.sshUsername || '',
-        sshPort: updatedServer.sshPort || updatedServer.port || serverData.sshPort || 22,
-        deployPath: serverData.deployPath || '',
+        serverType: updatedServer.webServerType || serverData.serverType || 'nginx',
+        description: updatedServer.description || serverData.description || '',
+        sshUsername: updatedServer.username || serverData.sshUsername || '',
+        sshPort: updatedServer.port || serverData.port || 22, // ServerResponse에는 port만 있음
+        deployPath: updatedServer.deployPath || serverData.deployPath || '',
         sshAuthType: 'password',
         sshPassword: '',
         sshPublicKey: '',
