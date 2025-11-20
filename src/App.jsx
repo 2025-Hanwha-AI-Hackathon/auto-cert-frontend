@@ -154,6 +154,8 @@ export default function App() {
   const [httpsTestResult, setHttpsTestResult] = useState(null);
   const [isTestingHttps, setIsTestingHttps] = useState(false);
   const [isLoadingCertificates, setIsLoadingCertificates] = useState(true);
+  const [isLoadingTimeout, setIsLoadingTimeout] = useState(false);
+  const loadingTimeoutRef = useRef(null);
 
   // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
@@ -175,8 +177,26 @@ export default function App() {
   const loadCertificates = async () => {
     try {
       setIsLoadingCertificates(true);
+      setIsLoadingTimeout(false);
+      
+      // 기존 타임아웃 제거
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      
+      // 10초 후 타임아웃 설정
+      loadingTimeoutRef.current = setTimeout(() => {
+        setIsLoadingTimeout(true);
+      }, 10000);
+      
       console.log('인증서 목록 조회 시작...');
       const response = await getCertificatesAPI(0, 100);
+      
+      // 타임아웃 제거 (성공한 경우)
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       
       if (response && response.content) {
         // API 응답을 프론트엔드 형식으로 변환
@@ -223,7 +243,13 @@ export default function App() {
     } catch (err) {
       console.error('인증서 목록 조회 실패:', err);
       setCertificates([]);
+      setIsLoadingTimeout(true); // 오류 시에도 재시도 버튼 표시
     } finally {
+      // 타임아웃 제거
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       setIsLoadingCertificates(false);
     }
   };
@@ -1181,8 +1207,27 @@ export default function App() {
         {/* 인증서 목록 */}
         {isLoadingCertificates ? (
           <div className="empty-state-full" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-            <Loader2 className="empty-state-icon" style={{ width: '3rem', height: '3rem', color: '#f97316', animation: 'spin 1s linear infinite' }} />
-            <h3 style={{ marginTop: '1rem' }}>인증서 데이터를 불러오는 중...</h3>
+            {!isLoadingTimeout ? (
+              <>
+                <Loader2 className="empty-state-icon" style={{ width: '3rem', height: '3rem', color: '#f97316', animation: 'spin 1s linear infinite' }} />
+                <h3 style={{ marginTop: '1rem' }}>인증서 데이터를 불러오는 중...</h3>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="empty-state-icon" style={{ width: '3rem', height: '3rem', color: '#f97316', marginBottom: '1rem' }} />
+                <h3 style={{ marginTop: '1rem', marginBottom: '1rem' }}>인증서 데이터를 불러오는데 시간이 오래 걸립니다.</h3>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setIsLoadingTimeout(false);
+                    loadCertificates();
+                  }}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  다시 시도
+                </button>
+              </>
+            )}
           </div>
         ) : filteredCertificates.length > 0 ? (
           <div className="certificates-grid">
