@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, X, Trash2, Edit, Loader2 } from 'lucide-react';
+import { Server, Plus, X, Trash2, Edit, Loader2, Search } from 'lucide-react';
 import '../styles/ServerManagement.css';
 
 export function ServerManagement({ 
@@ -15,6 +15,9 @@ export function ServerManagement({
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState(null);
   const [mouseDownTarget, setMouseDownTarget] = useState(null);
+  const [sortBy, setSortBy] = useState("name"); // "name", "host", "type"
+  const [sortOrder, setSortOrder] = useState("asc"); // "asc", "desc"
+  const [searchQuery, setSearchQuery] = useState("");
   const [serverFormData, setServerFormData] = useState({
     name: '',
     serverType: 'nginx',
@@ -191,6 +194,39 @@ export function ServerManagement({
         </button>
       </div>
 
+      {/* 검색 및 정렬 컨트롤 */}
+      <div className="filter-section" style={{ marginBottom: '1.5rem' }}>
+        <div className="filter-controls">
+          <div className="search-wrapper">
+            <Search className="search-icon" style={{ width: '1rem', height: '1rem' }} />
+            <input
+              type="text"
+              placeholder="서버 이름, 호스트로 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value)}
+            className="filter-select"
+            style={{ maxWidth: '200px' }}
+          >
+            <option value="name">이름 순</option>
+            <option value="host">호스트(IP) 순</option>
+            <option value="type">서버 타입 순</option>
+          </select>
+          <button
+            className="btn btn-outline"
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            style={{ marginLeft: '0.5rem' }}
+          >
+            {sortOrder === "asc" ? "↑ 오름차순" : "↓ 내림차순"}
+          </button>
+        </div>
+      </div>
+
       <div className="servers-list">
         {isLoading ? (
           <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
@@ -198,7 +234,37 @@ export function ServerManagement({
             <h3 style={{ marginTop: '1rem' }}>{isAddingServer ? '서버 정보를 추가 중입니다.' : '서버 데이터를 불러오는 중...'}</h3>
           </div>
         ) : servers && servers.length > 0 ? (
-          servers.map((server) => (
+          [...servers]
+            .filter(server => {
+              if (!searchQuery.trim()) return true;
+              const query = searchQuery.toLowerCase();
+              return (
+                (server.name || '').toLowerCase().includes(query) ||
+                (server.host || '').toLowerCase().includes(query) ||
+                (server.serverType || '').toLowerCase().includes(query) ||
+                (server.description || '').toLowerCase().includes(query)
+              );
+            })
+            .sort((a, b) => {
+              let comparison = 0;
+              
+              switch (sortBy) {
+                case "name":
+                  comparison = (a.name || '').localeCompare(b.name || '');
+                  break;
+                case "host":
+                  comparison = (a.host || '').localeCompare(b.host || '');
+                  break;
+                case "type":
+                  comparison = (a.serverType || '').localeCompare(b.serverType || '');
+                  break;
+                default:
+                  comparison = 0;
+              }
+              
+              return sortOrder === "asc" ? comparison : -comparison;
+            })
+            .map((server) => (
             <div key={server.id} className="server-card">
               <div className="server-card-header">
                 <div className="server-card-info">

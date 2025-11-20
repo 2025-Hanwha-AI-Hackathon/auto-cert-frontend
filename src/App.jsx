@@ -111,6 +111,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("certificates"); // "certificates" or "servers"
+  const [certSortBy, setCertSortBy] = useState("name"); // "name", "expiryDate", "issueDate", "status"
+  const [certSortOrder, setCertSortOrder] = useState("asc"); // "asc", "desc"
+  const [serverSortBy, setServerSortBy] = useState("name"); // "name", "host", "type"
+  const [serverSortOrder, setServerSortOrder] = useState("asc"); // "asc", "desc"
   const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedCertId, setSelectedCertId] = useState(null);
   const [renewFormData, setRenewFormData] = useState({
@@ -312,9 +316,36 @@ export default function App() {
   const filteredCertificates = certificates.filter(cert => {
     const matchesSearch = cert.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          cert.domain?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         cert.type.toLowerCase().includes(searchQuery.toLowerCase());
+                         cert.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         cert.managerName?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterStatus === "all" || cert.status === filterStatus;
     return matchesSearch && matchesFilter;
+  }).sort((a, b) => {
+    let comparison = 0;
+    
+    switch (certSortBy) {
+      case "name":
+        comparison = (a.domain || a.name || '').localeCompare(b.domain || b.name || '');
+        break;
+      case "expiryDate":
+        const dateA = a.expiryDate ? new Date(a.expiryDate) : new Date(0);
+        const dateB = b.expiryDate ? new Date(b.expiryDate) : new Date(0);
+        comparison = dateA - dateB;
+        break;
+      case "issueDate":
+        const issueA = a.issueDate ? new Date(a.issueDate) : new Date(0);
+        const issueB = b.issueDate ? new Date(b.issueDate) : new Date(0);
+        comparison = issueA - issueB;
+        break;
+      case "status":
+        const statusOrder = { 'valid': 1, 'expiring-soon': 2, 'expired': 3 };
+        comparison = (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+        break;
+      default:
+        comparison = 0;
+    }
+    
+    return certSortOrder === "asc" ? comparison : -comparison;
   });
 
   const handleRenew = async (id) => {
@@ -1407,22 +1438,30 @@ export default function App() {
               <Search className="search-icon" style={{ width: '1rem', height: '1rem' }} />
               <input
                 type="text"
-                placeholder="인증서 이름, 도메인으로 검색..."
+                placeholder="도메인, 담당자로 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
               />
             </div>
             <select 
-              value={filterStatus} 
-              onChange={(e) => setFilterStatus(e.target.value)}
+              value={certSortBy} 
+              onChange={(e) => setCertSortBy(e.target.value)}
               className="filter-select"
+              style={{ maxWidth: '150px' }}
             >
-              <option value="all">전체</option>
-              <option value="valid">유효</option>
-              <option value="expiring-soon">곧 만료</option>
-              <option value="expired">만료됨</option>
+              <option value="name">이름 순</option>
+              <option value="expiryDate">만료일 순</option>
+              <option value="issueDate">발급일 순</option>
+              <option value="status">상태 순</option>
             </select>
+            <button
+              className="btn btn-outline"
+              onClick={() => setCertSortOrder(certSortOrder === "asc" ? "desc" : "asc")}
+              style={{ marginLeft: '0.5rem' }}
+            >
+              {certSortOrder === "asc" ? "↑ 오름차순" : "↓ 내림차순"}
+            </button>
           </div>
         </div>
 
