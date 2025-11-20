@@ -1,6 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
+import { sendChatMessage } from '../services/api';
 import './ChatSidebar.css';
+
+/**
+ * 브라우저별 고유 세션 ID 생성 또는 가져오기
+ * localStorage에 저장하여 페이지 새로고침 후에도 유지
+ */
+const getOrCreateSessionId = () => {
+  let sessionId = localStorage.getItem('chatSessionId');
+  if (!sessionId) {
+    // 고유 세션 ID 생성: session_타임스탬프_랜덤문자열
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('chatSessionId', sessionId);
+    console.log('새 채팅 세션 생성:', sessionId);
+  }
+  return sessionId;
+};
 
 const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,6 +31,9 @@ const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  
+  // 브라우저별 고유 세션 ID (페이지 새로고침 후에도 유지)
+  const [sessionId] = useState(getOrCreateSessionId());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,27 +84,29 @@ const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }
     setInputValue('');
     setIsLoading(true);
 
-    // 실제 ChatGPT API 호출 (현재는 모의 응답)
-    // TODO: OpenAI API 또는 다른 채팅 API로 교체
-    setTimeout(() => {
-      const response = generateMockResponse(userMessage.content);
+    try {
+      // ⭐ 브라우저별 고유 세션 ID를 사용하여 AI API 호출
+      const response = await sendChatMessage(userMessage.content, sessionId);
+      
       const assistantMessage = {
         id: messages.length + 2,
         role: 'assistant',
-        content: response.content,
-        action: response.action // 필터링 액션 정보
+        content: response.message || response.content || '응답을 받지 못했습니다.',
+        timestamp: response.timestamp
       };
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsLoading(false);
       
-      // 필터링이 적용된 경우 시각적 피드백
-      if (response.action && response.action.type === 'filter') {
-        // 필터링이 적용되었음을 사용자에게 알림 (옵션)
-        setTimeout(() => {
-          // 필요시 추가 피드백 로직
-        }, 100);
-      }
-    }, 1000);
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('채팅 오류:', error);
+      const errorMessage = {
+        id: messages.length + 2,
+        role: 'assistant',
+        content: '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.'
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const generateMockResponse = (userInput) => {

@@ -221,10 +221,10 @@ export default function App() {
 
   const loadServers = async () => {
     try {
-      // 서버 API는 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
-      // TODO: 백엔드 API 구현 후 실제 API 호출로 변경
-      const serversData = await getServers(); // getServers는 내부적으로 더미 데이터 반환
-      setServers(serversData || []);
+      const serversData = await getServers();
+      // API 응답이 Page 객체인 경우 content를 추출, 배열인 경우 그대로 사용
+      const serversList = serversData?.content || serversData || [];
+      setServers(serversList);
     } catch (err) {
       console.error('서버 목록 조회 실패:', err);
       setServers([]);
