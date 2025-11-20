@@ -257,9 +257,14 @@ export default function App() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleRenew = (id) => {
+  const handleRenew = async (id) => {
     const cert = certificates.find(c => c.id === id);
     setSelectedCertId(id);
+    
+    // 서버 목록이 없으면 로드
+    if (servers.length === 0) {
+      await loadServers();
+    }
     
     // 기존 서버 정보가 있으면 설정
     if (cert && cert.serverId) {
@@ -1100,8 +1105,12 @@ export default function App() {
                 <span className="button-text">서버 관리</span>
               </button>
               <button 
-                onClick={() => {
+                onClick={async () => {
                   setActiveTab('certificates');
+                  // 서버 목록이 없으면 로드
+                  if (servers.length === 0) {
+                    await loadServers();
+                  }
                   setAddDialogOpen(true);
                 }}
                 className="btn btn-primary responsive-icon-button"
