@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Server, Plus, X, Trash2, Edit, Loader2 } from 'lucide-react';
 import '../styles/ServerManagement.css';
 
@@ -8,7 +8,9 @@ export function ServerManagement({
   onUpdateServer, 
   onDeleteServer,
   isLoading,
-  isAddingServer
+  isAddingServer,
+  serverToEdit: externalServerToEdit,
+  onServerEditComplete
 }) {
   const [serverDialogOpen, setServerDialogOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState(null);
@@ -93,6 +95,10 @@ export function ServerManagement({
     }
 
     setServerDialogOpen(false);
+    // 외부 편집 모드 종료
+    if (onServerEditComplete) {
+      onServerEditComplete();
+    }
     setServerFormData({ 
       name: '', 
       host: '', 
@@ -136,6 +142,29 @@ export function ServerManagement({
       onDeleteServer(serverId);
     }
   };
+
+  // 외부에서 서버 편집 요청이 있을 때 다이얼로그 열기
+  useEffect(() => {
+    if (externalServerToEdit) {
+      setSelectedServer(externalServerToEdit);
+      const isOtherType = externalServerToEdit.serverType && !['nginx', '웹투비', 'tomcat'].includes(externalServerToEdit.serverType);
+      setServerFormData({
+        name: externalServerToEdit.name || '',
+        host: externalServerToEdit.host || '',
+        port: externalServerToEdit.port || 22,
+        serverType: isOtherType ? '기타' : (externalServerToEdit.serverType || 'nginx'),
+        serverTypeOther: isOtherType ? externalServerToEdit.serverType : '',
+        description: externalServerToEdit.description || '',
+        sshUsername: externalServerToEdit.sshUsername || '',
+        sshPort: externalServerToEdit.sshPort || 22,
+        deployPath: externalServerToEdit.deployPath || '',
+        sshAuthType: externalServerToEdit.sshAuthType || 'password',
+        sshPassword: '', // 보안을 위해 비밀번호는 표시하지 않음
+        sshPublicKey: '' // 보안을 위해 공개키는 표시하지 않음
+      });
+      setServerDialogOpen(true);
+    }
+  }, [externalServerToEdit]);
 
   return (
     <div className="server-management">

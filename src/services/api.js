@@ -1,7 +1,7 @@
 // API 베이스 URL 설정
 // 개발 모드: 로컬 백엔드 사용 (localhost:8080)
 // 프로덕션: 프로덕션 서버 사용
-const IS_DEV_MODE = false; // AI 기능을 사용하려면 false로 설정
+const IS_DEV_MODE = import.meta.env.DEV === true; // npm run dev 시 더미 데이터 사용
 
 // 개발 환경에서는 로컬 백엔드 사용
 const API_BASE_URL = import.meta.env.MODE === 'production' 
@@ -106,6 +106,10 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         issuedAt: '2024-01-15T00:00:00Z',
         expiresAt: '2024-04-15T00:00:00Z',
         status: 'ACTIVE',
+        admin: '홍길동',
+        alertDaysBeforeExpiry: 7,
+        serverId: 1,
+        autoDeploy: true,
         renewalAttempts: 0,
         lastError: null,
         createdAt: '2024-01-15T00:00:00Z',
@@ -118,6 +122,10 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         issuedAt: '2024-01-10T00:00:00Z',
         expiresAt: '2024-03-10T00:00:00Z',
         status: 'EXPIRING_SOON',
+        admin: '김철수',
+        alertDaysBeforeExpiry: 7,
+        serverId: 2,
+        autoDeploy: false,
         renewalAttempts: 0,
         lastError: null,
         createdAt: '2024-01-10T00:00:00Z',
@@ -130,6 +138,10 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         issuedAt: '2023-01-01T00:00:00Z',
         expiresAt: '2024-01-01T00:00:00Z',
         status: 'EXPIRED',
+        admin: '이영희',
+        alertDaysBeforeExpiry: 7,
+        serverId: null,
+        autoDeploy: false,
         renewalAttempts: 1,
         lastError: null,
         createdAt: '2023-01-01T00:00:00Z',
@@ -174,6 +186,10 @@ export async function getCertificate(id) {
     issuedAt: '2024-01-15T00:00:00Z',
     expiresAt: '2024-04-15T00:00:00Z',
     status: 'ACTIVE',
+    admin: '홍길동',
+    alertDaysBeforeExpiry: 7,
+    serverId: 1,
+    autoDeploy: true,
     renewalAttempts: 0,
     lastError: null,
     createdAt: '2024-01-15T00:00:00Z',
@@ -228,6 +244,10 @@ export async function createCertificate(certificateData) {
     issuedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'ACTIVE',
+    admin: certificateData.managerName || '관리자',
+    alertDaysBeforeExpiry: certificateData.alarmDaysBefore || 7,
+    serverId: certificateData.serverId || null,
+    autoDeploy: certificateData.autoDeploy || false,
     renewalAttempts: 0,
     lastError: null,
     createdAt: new Date().toISOString(),
@@ -266,6 +286,10 @@ export async function renewCertificate(id, autoDeploy = false) {
     issuedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     status: 'ACTIVE',
+    admin: '홍길동',
+    alertDaysBeforeExpiry: 7,
+    serverId: 1,
+    autoDeploy: autoDeploy || false,
     renewalAttempts: 1,
     lastError: null,
     createdAt: new Date().toISOString(),

@@ -3,7 +3,7 @@ import { CertificateCard } from "./components/CertificateCard";
 import { CertificateStats } from "./components/CertificateStats";
 import { ServerManagement } from "./components/ServerManagement";
 import ChatSidebar from "./components/ChatSidebar";
-import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, ExternalLink, AlertCircle, XCircle, Loader2 } from "lucide-react";
+import { Plus, Search, Shield, Server as ServerIcon, Users, CheckCircle2, ExternalLink, AlertCircle, XCircle, Loader2, Trash2, Edit } from "lucide-react";
 import hanwhaLogo from "./assets/ci_logo_b.png";
 import { 
   getCertificates as getCertificatesAPI,
@@ -158,6 +158,10 @@ export default function App() {
   const loadingTimeoutRef = useRef(null);
   const [isLoadingServers, setIsLoadingServers] = useState(false);
   const [isAddingServer, setIsAddingServer] = useState(false);
+  const [serverEditDialogOpen, setServerEditDialogOpen] = useState(false);
+  const [serverToEdit, setServerToEdit] = useState(null);
+  const [deleteButtonHoverTime, setDeleteButtonHoverTime] = useState(0);
+  const deleteButtonHoverTimerRef = useRef(null);
 
   // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
@@ -374,7 +378,7 @@ export default function App() {
       let renewedCert = null;
       if (!IS_DEV_MODE) {
         try {
-          renewedCert = await renewCertificateAPI(Number(selectedCertId));
+          renewedCert = await renewCertificateAPI(Number(selectedCertId), renewFormData.deployImmediately || false);
           // 최소 1.5초 보장
           const elapsedTime = Date.now() - step1StartTime;
           if (elapsedTime < 1500) {
@@ -1131,6 +1135,66 @@ export default function App() {
     }
   };
 
+  // 인증서 삭제 핸들러
+  const handleDeleteCertificate = async (certId) => {
+    // 타이머 정리
+    if (deleteButtonHoverTimerRef.current) {
+      clearInterval(deleteButtonHoverTimerRef.current);
+      deleteButtonHoverTimerRef.current = null;
+    }
+    setDeleteButtonHoverTime(0);
+    
+    if (!confirm('정말로 이 인증서를 삭제하시겠습니까?\n삭제된 인증서는 복구할 수 없습니다.')) {
+      return;
+    }
+    
+    try {
+      await deleteCertificateAPI(Number(certId));
+      
+      // 인증서 목록에서 제거
+      setCertificates(prev => prev.filter(cert => cert.id !== certId));
+      
+      // 상세보기 다이얼로그 닫기
+      setDetailDialogOpen(false);
+      setSelectedCertificate(null);
+      
+      alert("인증서가 성공적으로 삭제되었습니다!");
+      
+      // 인증서 목록 재조회
+      await loadCertificates();
+    } catch (err) {
+      console.error('인증서 삭제 실패:', err);
+      alert(`인증서 삭제에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
+    }
+  };
+
+  // 상세보기에서 서버 수정 핸들러
+  const handleEditServerFromDetail = async (serverId) => {
+    // 타이머 정리
+    if (deleteButtonHoverTimerRef.current) {
+      clearInterval(deleteButtonHoverTimerRef.current);
+      deleteButtonHoverTimerRef.current = null;
+    }
+    setDeleteButtonHoverTime(0);
+    
+    // 서버 목록이 없으면 로드
+    if (servers.length === 0) {
+      await loadServers();
+    }
+    
+    const server = servers.find(s => String(s.id) === String(serverId));
+    if (server) {
+      // 상세보기 다이얼로그 닫기
+      setDetailDialogOpen(false);
+      setSelectedCertificate(null);
+      // 서버 관리 탭으로 이동하고 서버를 선택하여 수정 다이얼로그 열기
+      setServerToEdit(server);
+      setActiveTab('servers');
+    } else {
+      alert('서버 정보를 찾을 수 없습니다.');
+    }
+  };
+
 
   return (
     <div className="app-container">
@@ -1280,6 +1344,11 @@ export default function App() {
             onDeleteServer={handleDeleteServer}
             isLoading={isLoadingServers}
             isAddingServer={isAddingServer}
+            serverToEdit={serverToEdit}
+            onServerEditComplete={() => {
+              setServerToEdit(null);
+              setServerEditDialogOpen(false);
+            }}
           />
         )}
       </main>
@@ -1547,6 +1616,27 @@ export default function App() {
                           </div>
                         );
                       })()}
+
+                  {renewFormData.serverId && (() => {
+                    const selectedServer = servers.find(s => String(s.id) === String(renewFormData.serverId));
+                    const hasSshInfo = selectedServer && selectedServer.sshUsername && selectedServer.deployPath;
+                    return hasSshInfo && (
+                      <div className="form-group" style={{ marginTop: '1rem' }}>
+                        <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={renewFormData.deployImmediately}
+                            onChange={(e) => setRenewFormData(prev => ({ ...prev, deployImmediately: e.target.checked }))}
+                            disabled={isSubmitting}
+                          />
+                          서버에 바로 적용하시겠습니까?
+                        </label>
+                        <small style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block', marginLeft: '1.5rem' }}>
+                          체크 시 인증서 갱신 후 즉시 서버에 배포하고 재기동합니다.
+                        </small>
+                      </div>
+                    );
+                  })()}
               </div>
               
               <div className="dialog-footer">
@@ -2398,19 +2488,91 @@ export default function App() {
             // 다이얼로그 오버레이에서 직접 클릭한 경우에만 닫기
             // (다이얼로그 내부에서 드래그 후 바깥에서 마우스를 떼는 경우 방지)
             if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+              // 타이머 정리
+              if (deleteButtonHoverTimerRef.current) {
+                clearInterval(deleteButtonHoverTimerRef.current);
+                deleteButtonHoverTimerRef.current = null;
+              }
+              setDeleteButtonHoverTime(0);
               setDetailDialogOpen(false);
             }
             setMouseDownTarget(null);
           }}
         >
           <div className="dialog-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="dialog-header">
+            <div className="dialog-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h2 className="dialog-title">인증서 상세 정보</h2>
                 <p className="dialog-description">
                   {selectedCertificate.name}의 상세 정보입니다.
                 </p>
               </div>
+              <button 
+                className={`btn btn-danger delete-certificate-btn ${deleteButtonHoverTime >= 2000 ? 'active' : ''}`}
+                onClick={() => {
+                  if (deleteButtonHoverTime >= 2000) {
+                    handleDeleteCertificate(selectedCertificate.id);
+                  } else {
+                    alert('삭제 버튼 위에 마우스를 2초 이상 올려주세요.');
+                  }
+                }}
+                onMouseEnter={() => {
+                  setDeleteButtonHoverTime(0);
+                  if (deleteButtonHoverTimerRef.current) {
+                    clearInterval(deleteButtonHoverTimerRef.current);
+                  }
+                  const startTime = Date.now();
+                  deleteButtonHoverTimerRef.current = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    setDeleteButtonHoverTime(elapsed);
+                    if (elapsed >= 2000) {
+                      clearInterval(deleteButtonHoverTimerRef.current);
+                    }
+                  }, 10);
+                }}
+                onMouseLeave={() => {
+                  if (deleteButtonHoverTimerRef.current) {
+                    clearInterval(deleteButtonHoverTimerRef.current);
+                    deleteButtonHoverTimerRef.current = null;
+                  }
+                  setDeleteButtonHoverTime(0);
+                }}
+                style={{ 
+                  backgroundColor: deleteButtonHoverTime >= 2000 ? '#ef4444' : '#fee2e2',
+                  color: 'white', 
+                  borderColor: deleteButtonHoverTime >= 2000 ? '#ef4444' : '#fecaca',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  marginLeft: '1rem',
+                  cursor: 'pointer',
+                  opacity: 1,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  transition: 'none',
+                  pointerEvents: 'auto'
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    height: '100%',
+                    width: `${Math.min(100, (deleteButtonHoverTime / 2000) * 100)}%`,
+                    backgroundColor: '#ef4444',
+                    transition: 'width 0.1s linear',
+                    zIndex: 0,
+                    pointerEvents: 'none'
+                  }}
+                />
+                <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Trash2 size={16} />
+                  인증서 삭제 {deleteButtonHoverTime >= 2000 ? '' : `(${Math.ceil((2000 - deleteButtonHoverTime) / 1000)}초)`}
+                </span>
+              </button>
             </div>
             <div className="dialog-body">
               {/* 기본 인증서 정보 테이블 */}
@@ -2491,22 +2653,40 @@ export default function App() {
               <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', margin: 0 }}>배포된 서버 정보</h3>
-                  {!selectedCertificate.serverId && (
-                    <span style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      gap: '0.25rem',
-                      padding: '0.25rem 0.5rem',
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.75rem',
-                      fontWeight: 500
-                    }}>
-                      <AlertCircle size={12} />
-                      서버 미배포
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {selectedCertificate.serverId && (
+                      <button 
+                        className="btn btn-outline" 
+                        onClick={() => handleEditServerFromDetail(selectedCertificate.serverId)}
+                        style={{ 
+                          padding: '0.375rem 0.75rem',
+                          fontSize: '0.875rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <Edit size={14} />
+                        서버 수정
+                      </button>
+                    )}
+                    {!selectedCertificate.serverId && (
+                      <span style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '0.25rem',
+                        padding: '0.25rem 0.5rem',
+                        backgroundColor: '#fef3c7',
+                        color: '#92400e',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 500
+                      }}>
+                        <AlertCircle size={12} />
+                        서버 미배포
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {selectedCertificate.serverId ? (
                   (() => {
@@ -2788,7 +2968,18 @@ export default function App() {
               )}
             </div>
             <div className="dialog-footer">
-              <button className="btn btn-outline" onClick={() => setDetailDialogOpen(false)}>
+              <button 
+                className="btn btn-outline" 
+                onClick={() => {
+                  // 다이얼로그 닫을 때 타이머 정리
+                  if (deleteButtonHoverTimerRef.current) {
+                    clearInterval(deleteButtonHoverTimerRef.current);
+                    deleteButtonHoverTimerRef.current = null;
+                  }
+                  setDeleteButtonHoverTime(0);
+                  setDetailDialogOpen(false);
+                }}
+              >
                 닫기
               </button>
             </div>
