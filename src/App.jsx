@@ -155,12 +155,18 @@ export default function App() {
   const [isTestingHttps, setIsTestingHttps] = useState(false);
   const [isLoadingCertificates, setIsLoadingCertificates] = useState(true);
 
-  // 페이지 진입 시 서버 목록 및 인증서 목록 로드
+  // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
     // 페이지 진입과 동시에 인증서 정보 로드
     loadCertificates();
-    loadServers();
   }, []);
+
+  // 서버 관리 탭 진입 시 서버 목록 로드
+  useEffect(() => {
+    if (activeTab === 'servers') {
+      loadServers();
+    }
+  }, [activeTab]);
 
   /**
    * 인증서 목록을 API에서 가져오는 함수

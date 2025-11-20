@@ -73,7 +73,9 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
     });
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/certificates?${params}`);
+      const url = `${API_BASE_URL}/api/v1/certificates?${params}`;
+      console.log('[API 호출] GET', url);
+      const response = await fetch(url);
       return handleResponse(response);
     } catch (error) {
       console.error('인증서 목록 조회 실패:', error);
@@ -152,7 +154,9 @@ export async function getCertificate(id) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`);
+      const url = `${API_BASE_URL}/api/v1/certificates/${id}`;
+      console.log('[API 호출] GET', url);
+      const response = await fetch(url);
       return handleResponse(response);
     } catch (error) {
       console.error('인증서 상세 조회 실패:', error);
@@ -192,7 +196,9 @@ export async function createCertificate(certificateData) {
     };
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/certificates`, {
+      const url = `${API_BASE_URL}/api/v1/certificates`;
+      console.log('[API 호출] POST', url, requestBody);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,7 +237,9 @@ export async function renewCertificate(id) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}/renew`, {
+      const url = `${API_BASE_URL}/api/v1/certificates/${id}/renew`;
+      console.log('[API 호출] POST', url);
+      const response = await fetch(url, {
         method: 'POST',
       });
       return handleResponse(response);
@@ -266,7 +274,9 @@ export async function deleteCertificate(id) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${id}`, {
+      const url = `${API_BASE_URL}/api/v1/certificates/${id}`;
+      console.log('[API 호출] DELETE', url);
+      const response = await fetch(url, {
         method: 'DELETE',
       });
       
@@ -292,7 +302,9 @@ export async function deleteCertificate(id) {
  * @returns {Promise<Object>} 서버 상태 정보
  */
 export async function checkHealth() {
-  const response = await fetch(`${API_BASE_URL}/api/v1/health`);
+  const url = `${API_BASE_URL}/api/v1/health`;
+  console.log('[API 호출] GET', url);
+  const response = await fetch(url);
   return handleResponse(response);
 }
 
@@ -304,7 +316,9 @@ export async function getServers() {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/servers`);
+      const url = `${API_BASE_URL}/api/v1/servers`;
+      console.log('[API 호출] GET', url);
+      const response = await fetch(url);
       const servers = await handleResponse(response);
       
       // 백엔드 응답을 프론트엔드 형식으로 변환
@@ -411,7 +425,9 @@ export async function createServer(serverData) {
         password: serverData.sshPassword || serverData.password || ''
       };
       
-      const response = await fetch(`${API_BASE_URL}/api/v1/servers`, {
+      const url = `${API_BASE_URL}/api/v1/servers`;
+      console.log('[API 호출] POST', url, requestBody);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -461,7 +477,9 @@ export async function getServer(id) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`);
+      const url = `${API_BASE_URL}/api/v1/servers/${id}`;
+      console.log('[API 호출] GET', url);
+      const response = await fetch(url);
       const server = await handleResponse(response);
       
       // 백엔드 응답을 프론트엔드 형식으로 변환
@@ -524,7 +542,9 @@ export async function updateServer(id, serverData) {
         password: serverData.sshPassword || serverData.password || ''
       };
       
-      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
+      const url = `${API_BASE_URL}/api/v1/servers/${id}`;
+      console.log('[API 호출] PUT', url, requestBody);
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -570,7 +590,9 @@ export async function deleteServer(id) {
   // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
   if (!IS_DEV_MODE) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/servers/${id}`, {
+      const url = `${API_BASE_URL}/api/v1/servers/${id}`;
+      console.log('[API 호출] DELETE', url);
+      const response = await fetch(url, {
         method: 'DELETE',
       });
       
