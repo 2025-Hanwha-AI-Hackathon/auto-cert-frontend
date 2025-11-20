@@ -1,10 +1,12 @@
 // API 베이스 URL 설정
-// 개발 모드(npm run dev): 더미 데이터 사용
-// 테스트 모드(npm run test) 및 프로덕션: 실제 API 호출
-const IS_DEV_MODE = import.meta.env.MODE === 'development';
+// 개발 모드: 로컬 백엔드 사용 (localhost:8080)
+// 프로덕션: 프로덕션 서버 사용
+const IS_DEV_MODE = false; // AI 기능을 사용하려면 false로 설정
 
-// 모든 모드에서 프로덕션 서버 사용
-const API_BASE_URL = 'https://auto-cert-backend-production.up.railway.app';
+// 개발 환경에서는 로컬 백엔드 사용
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://auto-cert-backend-production.up.railway.app'
+  : 'http://localhost:8080';
 
 // 디버깅용 (개발 시에만 콘솔 출력)
 if (import.meta.env.DEV) {
@@ -708,6 +710,67 @@ export async function deployCertificate(certificateId, deploymentData) {
     success: true,
     deployedAt: new Date().toISOString()
   });
+}
+
+/**
+ * AI 채팅 메시지 전송
+ * @param {string} message - 사용자 메시지
+ * @param {string} sessionId - 세션 ID (선택, 기본값: "default")
+ * @returns {Promise<Object>} 채팅 응답
+ */
+export async function sendChatMessage(message, sessionId = 'default') {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    const requestBody = {
+      message: message,
+      sessionId: sessionId
+    };
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('채팅 메시지 전송 실패:', error);
+      throw error;
+    }
+  }
+  
+  // 개발 모드: 더미 데이터 반환
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return Promise.resolve({
+    message: "테스트 응답입니다. 실제 AI 기능은 프로덕션 모드에서 동작합니다.",
+    role: "assistant",
+    timestamp: new Date().toISOString(),
+    sessionId: sessionId,
+    success: true
+  });
+}
+
+/**
+ * 채팅 히스토리 조회
+ * @param {string} sessionId - 세션 ID (기본값: "default")
+ * @returns {Promise<Array>} 채팅 히스토리
+ */
+export async function getChatHistory(sessionId = 'default') {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chat/history/${sessionId}`);
+      return handleResponse(response);
+    } catch (error) {
+      console.error('채팅 히스토리 조회 실패:', error);
+      return [];
+    }
+  }
+  
+  // 개발 모드: 빈 배열 반환
+  return Promise.resolve([]);
 }
 
 
