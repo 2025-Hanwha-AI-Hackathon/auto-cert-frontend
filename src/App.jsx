@@ -881,25 +881,33 @@ export default function App() {
       
       setCertificates(prev => [newCert, ...prev]);
       
+      // 인증서 추가 다이얼로그 닫기
+      setAddDialogOpen(false);
+      
+      // 진행 다이얼로그 열기 (항상 표시)
+      setRenewProgressDialogOpen(true);
+      setRenewProgress({ step: 0, message: '인증서 생성 및 배포를 시작합니다...', error: null, type: 'add' });
+      addCancelledRef.current = false;
+      
       // 배포 옵션이 선택되었으면 배포 프로세스 시작
       if (addFormData.deployImmediately && addFormData.serverId) {
-        setAddDialogOpen(false);
-        
-        // 진행 다이얼로그 열기
-        setRenewProgressDialogOpen(true);
-        setRenewProgress({ step: 0, message: '인증서 생성 및 배포를 시작합니다...', error: null, type: 'add' });
-        addCancelledRef.current = false;
-        
         // 배포 프로세스 시작 (서버의 SSH 정보 사용)
         confirmAddAndDeploy(newCert.id, addFormData.serverId);
       } else {
+        // 배포 없이 인증서 생성만 완료
+        setRenewProgress({ step: 3, message: '인증서 생성 완료!', error: null, type: 'add' });
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
         // 인증서 목록 재로드 (최신 상태 가져오기)
         if (!IS_DEV_MODE) {
           await loadCertificates();
         }
         
-        alert("새 인증서가 성공적으로 추가되었습니다!");
-        setAddDialogOpen(false);
+        // 진행 다이얼로그 닫기
+        setRenewProgressDialogOpen(false);
+        setRenewProgress({ step: 0, message: '', error: null, type: 'add' });
+        addCancelledRef.current = false;
+        
         setAddFormData({ 
           domain: '', 
           challengeType: 'DNS', 
@@ -1421,7 +1429,7 @@ export default function App() {
                         <option value="">서버를 선택하세요</option>
                         {servers.map(server => (
                           <option key={server.id} value={server.id}>
-                            {server.name} ({server.host}:{server.port})
+                            {server.name} ({server.host}:{server.sshPort || server.port})
                           </option>
                         ))}
                       </select>

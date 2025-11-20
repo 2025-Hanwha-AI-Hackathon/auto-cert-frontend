@@ -451,7 +451,7 @@ export async function createServer(serverData) {
       const requestBody = {
         name: serverData.name || '',
         ipAddress: serverData.host || serverData.ipAddress || '',
-        port: serverData.port || 22,
+        port: serverData.sshPort || serverData.port || 22, // sshPort 값을 port로 매핑
         webServerType: serverData.serverType || serverData.webServerType || 'nginx',
         username: serverData.sshUsername || serverData.username || '',
         password: serverData.sshPassword || serverData.password || '',
@@ -570,7 +570,7 @@ export async function updateServer(id, serverData) {
       const requestBody = {
         name: serverData.name || '',
         ipAddress: serverData.host || serverData.ipAddress || '',
-        port: serverData.port || 22,
+        port: serverData.sshPort || serverData.port || 22, // sshPort 값을 port로 매핑
         webServerType: serverData.serverType || serverData.webServerType || 'nginx',
         username: serverData.sshUsername || serverData.username || '',
         password: serverData.sshPassword || serverData.password || '',

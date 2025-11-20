@@ -17,11 +17,10 @@ export function ServerManagement({
   const [mouseDownTarget, setMouseDownTarget] = useState(null);
   const [serverFormData, setServerFormData] = useState({
     name: '',
-    host: '',
-    port: 22,
     serverType: 'nginx',
     serverTypeOther: '', // '기타' 선택 시 입력값
     description: '',
+    host: '', // SSH 정보로 이동
     sshUsername: '',
     sshPort: 22,
     deployPath: '',
@@ -37,13 +36,8 @@ export function ServerManagement({
       return;
     }
     
-    if (!serverFormData.host.trim()) {
-      alert('호스트(IP 또는 도메인)는 필수 입력 항목입니다.');
-      return;
-    }
-    
-    if (!serverFormData.port || serverFormData.port < 1 || serverFormData.port > 65535) {
-      alert('SSH 포트는 필수 입력 항목입니다. (1-65535 범위)');
+    if (!serverFormData.name.trim()) {
+      alert('서버 이름은 필수 입력 항목입니다.');
       return;
     }
     
@@ -59,6 +53,11 @@ export function ServerManagement({
     }
     
     // SSH 정보 필수 검증
+    if (!serverFormData.host.trim()) {
+      alert('호스트(IP 또는 도메인)는 필수 입력 항목입니다.');
+      return;
+    }
+    
     if (!serverFormData.sshUsername.trim()) {
       alert('SSH 사용자명은 필수 입력 항목입니다.');
       return;
@@ -81,7 +80,7 @@ export function ServerManagement({
 
     const serverDataToSave = {
       ...serverFormData,
-      port: parseInt(serverFormData.port) || 22,
+      port: parseInt(serverFormData.sshPort) || 22, // port는 sshPort 값을 사용
       sshPort: parseInt(serverFormData.sshPort) || 22,
       serverType: serverFormData.serverType === '기타' ? serverFormData.serverTypeOther : serverFormData.serverType
     };
@@ -101,11 +100,10 @@ export function ServerManagement({
     }
     setServerFormData({ 
       name: '', 
-      host: '', 
-      port: 22, 
       serverType: 'nginx',
       serverTypeOther: '',
       description: '',
+      host: '',
       sshUsername: '',
       sshPort: 22,
       deployPath: '',
@@ -122,13 +120,12 @@ export function ServerManagement({
     const isOtherType = server.serverType && !['nginx', '웹투비', 'tomcat'].includes(server.serverType);
     setServerFormData({
       name: server.name || '',
-      host: server.host || '',
-      port: server.port || 22,
       serverType: isOtherType ? '기타' : (server.serverType || 'nginx'),
       serverTypeOther: isOtherType ? server.serverType : '',
       description: server.description || '',
+      host: server.host || '',
       sshUsername: server.sshUsername || '',
-      sshPort: server.sshPort || 22,
+      sshPort: server.sshPort || server.port || 22,
       deployPath: server.deployPath || '',
       sshAuthType: server.sshAuthType || 'password',
       sshPassword: '', // 보안을 위해 비밀번호는 표시하지 않음
@@ -150,13 +147,12 @@ export function ServerManagement({
       const isOtherType = externalServerToEdit.serverType && !['nginx', '웹투비', 'tomcat'].includes(externalServerToEdit.serverType);
       setServerFormData({
         name: externalServerToEdit.name || '',
-        host: externalServerToEdit.host || '',
-        port: externalServerToEdit.port || 22,
         serverType: isOtherType ? '기타' : (externalServerToEdit.serverType || 'nginx'),
         serverTypeOther: isOtherType ? externalServerToEdit.serverType : '',
         description: externalServerToEdit.description || '',
+        host: externalServerToEdit.host || '',
         sshUsername: externalServerToEdit.sshUsername || '',
-        sshPort: externalServerToEdit.sshPort || 22,
+        sshPort: externalServerToEdit.sshPort || externalServerToEdit.port || 22,
         deployPath: externalServerToEdit.deployPath || '',
         sshAuthType: externalServerToEdit.sshAuthType || 'password',
         sshPassword: '', // 보안을 위해 비밀번호는 표시하지 않음
@@ -176,11 +172,10 @@ export function ServerManagement({
             setSelectedServer(null);
             setServerFormData({ 
               name: '', 
-              host: '', 
-              port: 22, 
               serverType: 'nginx',
               serverTypeOther: '',
               description: '',
+              host: '',
               sshUsername: '',
               sshPort: 22,
               deployPath: '',
@@ -210,7 +205,7 @@ export function ServerManagement({
                   <Server size={20} className="server-icon" />
                   <div>
                     <h3>{server.name}</h3>
-                    <p>{server.host}:{server.port}</p>
+                    <p>{server.host}:{server.sshPort || server.port}</p>
                     {server.description && (
                       <p className="server-description">{server.description}</p>
                     )}
@@ -291,32 +286,6 @@ export function ServerManagement({
               </div>
               <div className="form-group">
                 <label className="form-label">
-                  호스트 (IP 또는 도메인) <span style={{ color: 'red' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={serverFormData.host}
-                  onChange={(e) => setServerFormData(prev => ({ ...prev, host: e.target.value }))}
-                  placeholder="예: 192.168.1.100 또는 server.example.com"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">
-                  SSH 포트 <span style={{ color: 'red' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={serverFormData.port}
-                  onChange={(e) => setServerFormData(prev => ({ ...prev, port: parseInt(e.target.value) || 22 }))}
-                  placeholder="22"
-                  min="1"
-                  max="65535"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">
                   서버 타입 <span style={{ color: 'red' }}>*</span>
                 </label>
                 <select
@@ -358,6 +327,19 @@ export function ServerManagement({
               <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>SSH 정보</h3>
                 
+                <div className="form-group">
+                  <label className="form-label">
+                    호스트 (IP 또는 도메인) <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={serverFormData.host}
+                    onChange={(e) => setServerFormData(prev => ({ ...prev, host: e.target.value }))}
+                    placeholder="예: 192.168.1.100 또는 server.example.com"
+                  />
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">
                     SSH 사용자명 <span style={{ color: 'red' }}>*</span>
