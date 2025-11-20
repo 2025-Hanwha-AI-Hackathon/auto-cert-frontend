@@ -225,8 +225,8 @@ export default function App() {
             issueDate: cert.issuedAt ? new Date(cert.issuedAt).toISOString().split('T')[0] : '',
             expiryDate: cert.expiresAt ? new Date(cert.expiresAt).toISOString().split('T')[0] : '',
             status: status,
-            alarmDaysBefore: 7,
-            managerName: '',
+            alarmDaysBefore: cert.alertDaysBeforeExpiry || 7,
+            managerName: cert.admin || '',
             serverId: cert.serverId,
             deployedAt: cert.deployedAt,
             // 백엔드 원본 상태도 저장 (필요시 사용)
@@ -573,6 +573,11 @@ export default function App() {
       // 로컬 상태에서 먼저 확인
       let cert = certificates.find(c => c.id === id);
       
+      // 서버 목록이 없으면 로드 (배포된 서버 정보 표시를 위해)
+      if (servers.length === 0) {
+        await loadServers();
+      }
+      
       // API에서 최신 정보 가져오기 (비개발 모드에서만)
       if (!IS_DEV_MODE && id) {
         try {
@@ -599,8 +604,8 @@ export default function App() {
               issueDate: apiCert.issuedAt ? new Date(apiCert.issuedAt).toISOString().split('T')[0] : '',
               expiryDate: apiCert.expiresAt ? new Date(apiCert.expiresAt).toISOString().split('T')[0] : '',
               status: status,
-              alarmDaysBefore: cert?.alarmDaysBefore || 7,
-              managerName: cert?.managerName || '',
+              alarmDaysBefore: apiCert.alertDaysBeforeExpiry || cert?.alarmDaysBefore || 7,
+              managerName: apiCert.admin || cert?.managerName || '',
               serverId: apiCert.serverId || cert?.serverId,
               deployedAt: apiCert.deployedAt || cert?.deployedAt,
               rawStatus: apiCert.status,
