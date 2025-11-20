@@ -171,7 +171,7 @@ export function ServerManagement({
         {isLoading ? (
           <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
             <Loader2 className="empty-icon" style={{ width: '3rem', height: '3rem', color: '#f97316', animation: 'spin 1s linear infinite' }} />
-            <h3 style={{ marginTop: '1rem' }}>{isAddingServer ? '서버 정보를 추가중입니다.' : '서버 데이터를 불러오는 중...'}</h3>
+            <h3 style={{ marginTop: '1rem' }}>{isAddingServer ? '서버 정보를 추가 중입니다.' : '서버 데이터를 불러오는 중...'}</h3>
           </div>
         ) : servers && servers.length > 0 ? (
           servers.map((server) => (
