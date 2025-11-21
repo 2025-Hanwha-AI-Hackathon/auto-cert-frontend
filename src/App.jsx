@@ -3418,7 +3418,7 @@ const formatDateOnly = (dateString) => {
                   <p className="dialog-description">
                     {needsServerSetup 
                       ? '배포된 서버 정보가 없습니다. 서버 배포 설정을 선택해주세요.'
-                      : '이 인증서를 서버에 적용하시겠습니까? 서버 정보를 확인하고 수정할 수 있습니다.'}
+                      : '이 인증서를 해당 서버에 적용하시겠습니까?'}
                   </p>
                 </div>
               </div>
