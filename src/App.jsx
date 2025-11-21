@@ -1359,10 +1359,6 @@ const formatDateOnly = (dateString) => {
   };
 
   const handleDeleteServer = async (serverId) => {
-    if (!confirm('정말로 이 서버를 삭제하시겠습니까?')) {
-      return;
-    }
-    
     try {
       // 백엔드 API로 서버 삭제
       await deleteServerAPI(serverId);
@@ -3154,10 +3150,6 @@ const formatDateOnly = (dateString) => {
                                   🔒 ID/PASSWORD
                                 </span>
                               </td>
-                            </tr>
-                            <tr>
-                              <th>배포 시간</th>
-                              <td>{formatDate(selectedCertificate.updatedAt || selectedCertificate.deployedAt)}</td>
                             </tr>
                           </tbody>
                         </table>

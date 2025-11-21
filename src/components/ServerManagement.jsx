@@ -449,7 +449,7 @@ export function ServerManagement({
 
                 <div className="form-group">
                   <label className="form-label">
-                    비밀번호 <span style={{ color: 'red' }}>*</span>
+                    PASSWORD <span style={{ color: 'red' }}>*</span>
                   </label>
                   <div>
                     <input
@@ -457,7 +457,7 @@ export function ServerManagement({
                       className="form-input"
                       value={serverFormData.sshPassword}
                       onChange={(e) => setServerFormData(prev => ({ ...prev, sshPassword: e.target.value }))}
-                      placeholder="SSH 비밀번호를 입력하세요"
+                      placeholder="SSH PASSWORD를 입력하세요"
                     />
                   </div>
                 </div>
