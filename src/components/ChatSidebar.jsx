@@ -49,6 +49,17 @@ const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }
     }
   }, [isOpen]);
 
+  // textarea 높이 자동 조정
+  useEffect(() => {
+    if (inputRef.current) {
+      // 높이 초기화
+      inputRef.current.style.height = 'auto';
+      // scrollHeight에 맞춰 높이 설정 (최대 200px)
+      const newHeight = Math.min(inputRef.current.scrollHeight, 200);
+      inputRef.current.style.height = `${newHeight}px`;
+    }
+  }, [inputValue]);
+
   // 인증서 이름으로 검색하는 헬퍼 함수
   const findCertificateByName = (userInput, certs) => {
     if (!certs || certs.length === 0) return null;
@@ -341,8 +352,19 @@ const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e) => {
+    // Ctrl+Enter 또는 Cmd+Enter: 줄바꿈 허용 (기본 동작 유지)
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      // 줄바꿈 허용 (기본 동작 유지, preventDefault 호출 안 함)
+      return;
+    }
+    // Shift+Enter: 줄바꿈 허용
+    if (e.key === 'Enter' && e.shiftKey) {
+      // 줄바꿈 허용 (기본 동작 유지)
+      return;
+    }
+    // Enter만 누른 경우: 메시지 전송
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleSend();
     }
@@ -361,8 +383,16 @@ const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }
         </button>
       )}
 
+      {/* 오버레이 */}
+      {isOpen && (
+        <div 
+          className="chat-overlay"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* 사이드바 */}
-      <div className={`chat-sidebar ${isOpen ? 'open' : ''}`}>
+      <div className={`chat-sidebar ${isOpen ? 'open' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="chat-sidebar-header">
           <div className="chat-header-content">
             <Bot size={20} />
@@ -421,15 +451,21 @@ const ChatSidebar = ({ onFilterChange, stats, certificates, onRenewCertificate }
 
         <div className="chat-input-container">
           <div className="chat-input-wrapper">
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="메시지를 입력하세요..."
+              onKeyDown={handleKeyDown}
+              placeholder="메시지를 입력하세요... (Ctrl+Enter로 줄바꿈)"
               className="chat-input"
               disabled={isLoading}
+              rows={1}
+              style={{
+                resize: 'none',
+                overflow: 'hidden',
+                minHeight: '40px',
+                maxHeight: '200px'
+              }}
             />
             <button
               onClick={handleSend}

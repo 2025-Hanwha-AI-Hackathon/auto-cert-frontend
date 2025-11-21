@@ -2,7 +2,7 @@ import { Shield, Calendar, AlertTriangle, CheckCircle2, XCircle, AlertCircle } f
 import { useEffect, useRef, useState } from "react";
 import "../styles/CertificateCard.css";
 
-export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer, httpsTestFailed }) {
+export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer, httpsTestFailed, latestDeploymentStatus }) {
   const badgeRef = useRef(null);
   const warningRef = useRef(null);
   const [badgeWrapped, setBadgeWrapped] = useState(false);
@@ -92,7 +92,7 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
             {certificate.domain && (
               <p>{certificate.domain}</p>
             )}
-            {(!hasServer || httpsTestFailed) && (
+            {!hasServer && (
               <p ref={warningRef} className={`card-warning-message responsive-warning ${warningWrapped ? 'wrapped' : ''}`}>
                 <AlertCircle size={18} className="warning-icon" />
                 <span className="warning-text">인증서가 서버에 적용되지 않았습니다.</span>
@@ -113,7 +113,10 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
           </div>
           <div className="detail-row">
             <span className="detail-label">발급일</span>
-            <span className="detail-value">{certificate.issueDate}</span>
+            <div className="detail-with-icon">
+              <Calendar className="detail-icon" />
+              <span className="detail-value">{certificate.issueDate}</span>
+            </div>
           </div>
           <div className="detail-row">
             <span className="detail-label">만료일</span>
@@ -146,7 +149,7 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
           onClick={() => onRenew(certificate.id)}
           className="btn btn-primary"
         >
-          {hasServer ? '인증서 갱신' : '인증서 적용'}
+          {(latestDeploymentStatus === 'SUCCESS' || hasServer) ? '인증서 갱신' : '인증서 적용'}
         </button>
       </div>
     </div>

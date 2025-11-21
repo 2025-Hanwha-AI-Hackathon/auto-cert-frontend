@@ -93,7 +93,54 @@ const initialCertificates = [
 export default function App() {
   // 테스트 모드 여부 확인 (로컬 백엔드 사용 여부)
   const IS_DEV_MODE = import.meta.env.DEV === true;
+
+// 날짜/시간 포맷팅 함수 (배포 시간 형식과 동일, 시간 포함)
+const formatDateWithTime = (dateString) => {
+  if (!dateString) return '';
   
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch (error) {
+    console.error('날짜 포맷팅 오류:', error, dateString);
+    return dateString;
+  }
+};
+
+// 날짜만 포맷팅 함수 (시간 제외, 발급일과 같은 형식)
+const formatDateOnly = (dateString) => {
+  if (!dateString) return '';
+  
+  try {
+    const date = new Date(dateString);
+    // 발급일과 같은 형식 (점 구분)으로 표시하되 시간은 제외
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  } catch (error) {
+    console.error('날짜 포맷팅 오류:', error, dateString);
+    // 실패 시 원본 문자열에서 날짜 부분만 추출 시도
+    try {
+      const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        return `${match[1]}. ${match[2]}. ${match[3]}.`;
+      }
+    } catch (e) {
+      // 무시
+    }
+    return dateString;
+  }
+};
+
   // 서버 타입 표시 이름 변환 함수
   const formatServerType = (serverType) => {
     if (!serverType) return null;
@@ -169,6 +216,9 @@ export default function App() {
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   const [certificateToDelete, setCertificateToDelete] = useState(null);
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [certificateToApply, setCertificateToApply] = useState(null);
+  const [isApplying, setIsApplying] = useState(false);
 
   // 페이지 진입 시 인증서 목록 로드
   useEffect(() => {
@@ -254,14 +304,18 @@ export default function App() {
             type: "SSL/TLS 인증서",
             domain: cert.domain,
             issuer: cert.issuer || "Let's Encrypt",
-            issueDate: cert.issuedAt ? new Date(cert.issuedAt).toISOString().split('T')[0] : '',
-            expiryDate: cert.expiresAt ? new Date(cert.expiresAt).toISOString().split('T')[0] : '',
+            issueDate: cert.issuedAt ? formatDateOnly(cert.issuedAt) : '',
+            expiryDate: cert.expiresAt ? formatDateOnly(cert.expiresAt) : '',
+            // 상세보기용 원본 날짜 데이터 저장
+            rawIssueDate: cert.issuedAt || null,
+            rawExpiryDate: cert.expiresAt || null,
             status: status,
             alarmDaysBefore: cert.alertDaysBeforeExpiry || 7,
             managerName: cert.admin || '',
             serverId: cert.serverId,
             deployedAt: cert.deployedAt,
             updatedAt: cert.updatedAt,
+            latestDeploymentStatus: cert.latestDeploymentStatus || null,
             // 백엔드 원본 상태도 저장 (필요시 사용)
             rawStatus: cert.status,
             renewalAttempts: cert.renewalAttempts || 0,
@@ -350,12 +404,37 @@ export default function App() {
 
   const handleRenew = async (id) => {
     const cert = certificates.find(c => c.id === id);
-    setSelectedCertId(id);
     
     // 서버 목록이 없으면 로드
     if (servers.length === 0) {
       await loadServers();
     }
+    
+    // latestDeploymentStatus가 'SUCCESS'가 아니면 인증서 적용 다이얼로그 표시
+    if (cert && cert.latestDeploymentStatus !== 'SUCCESS') {
+      setCertificateToApply(cert);
+      // 기존 서버 정보가 있으면 설정
+      if (cert.serverId) {
+        setRenewFormData({
+          serverId: String(cert.serverId),
+          deployImmediately: false
+        });
+      } else {
+        // 서버 정보가 없으면 초기화
+        setRenewFormData({
+          serverId: '',
+          deployImmediately: false
+        });
+      }
+      // SSH 편집 모드 초기화
+      setSshEditMode(false);
+      setSshEditServerId(null);
+      setApplyDialogOpen(true);
+      return;
+    }
+    
+    // 인증서 갱신 다이얼로그 표시
+    setSelectedCertId(id);
     
     // 기존 서버 정보가 있으면 설정
     if (cert && cert.serverId) {
@@ -517,7 +596,8 @@ export default function App() {
             ? { 
                 ...cert, 
                 status: status,
-                expiryDate: renewedCert.expiresAt ? new Date(renewedCert.expiresAt).toISOString().split('T')[0] : cert.expiryDate,
+                expiryDate: renewedCert.expiresAt ? formatDateOnly(renewedCert.expiresAt) : cert.expiryDate,
+                latestDeploymentStatus: renewedCert.latestDeploymentStatus !== undefined ? renewedCert.latestDeploymentStatus : cert.latestDeploymentStatus,
                 rawStatus: renewedCert.status,
                 renewalAttempts: renewedCert.renewalAttempts || cert.renewalAttempts || 0,
                 lastError: renewedCert.lastError || null
@@ -531,7 +611,7 @@ export default function App() {
             ? { 
                 ...cert, 
                 status: 'valid', 
-                expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                expiryDate: formatDateOnly(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()),
               }
             : cert
         ));
@@ -707,14 +787,18 @@ export default function App() {
               type: "SSL/TLS 인증서",
               domain: apiCert.domain,
               issuer: apiCert.issuer || "Let's Encrypt",
-              issueDate: apiCert.issuedAt ? new Date(apiCert.issuedAt).toISOString().split('T')[0] : '',
-              expiryDate: apiCert.expiresAt ? new Date(apiCert.expiresAt).toISOString().split('T')[0] : '',
+              issueDate: apiCert.issuedAt ? formatDateOnly(apiCert.issuedAt) : '',
+              expiryDate: apiCert.expiresAt ? formatDateOnly(apiCert.expiresAt) : '',
+              // 상세보기용 원본 날짜 데이터 저장
+              rawIssueDate: apiCert.issuedAt || cert?.rawIssueDate || null,
+              rawExpiryDate: apiCert.expiresAt || cert?.rawExpiryDate || null,
               status: status,
               alarmDaysBefore: apiCert.alertDaysBeforeExpiry || cert?.alarmDaysBefore || 7,
               managerName: apiCert.admin || cert?.managerName || '',
               serverId: apiCert.serverId || cert?.serverId,
               deployedAt: apiCert.deployedAt || cert?.deployedAt,
               updatedAt: apiCert.updatedAt || cert?.updatedAt,
+              latestDeploymentStatus: apiCert.latestDeploymentStatus || cert?.latestDeploymentStatus || null,
               rawStatus: apiCert.status,
               renewalAttempts: apiCert.renewalAttempts || 0,
               lastError: apiCert.lastError || null
@@ -993,12 +1077,16 @@ export default function App() {
         type: "SSL/TLS 인증서",
         domain: addFormData.domain.trim(),
         issuer: createdCert?.issuer || "Let's Encrypt",
-        issueDate: createdCert?.issuedAt ? new Date(createdCert.issuedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        expiryDate: createdCert?.expiresAt ? new Date(createdCert.expiresAt).toISOString().split('T')[0] : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        issueDate: createdCert?.issuedAt ? formatDateOnly(createdCert.issuedAt) : formatDateOnly(new Date().toISOString()),
+        expiryDate: createdCert?.expiresAt ? formatDateOnly(createdCert.expiresAt) : formatDateOnly(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()),
+        // 상세보기용 원본 날짜 데이터 저장
+        rawIssueDate: createdCert?.issuedAt || new Date().toISOString(),
+        rawExpiryDate: createdCert?.expiresAt || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
         status: status,
         serverId: addFormData.serverId || null,
         alarmDaysBefore: addFormData.alarmDaysBefore || 7,
         managerName: addFormData.managerName.trim(),
+        latestDeploymentStatus: createdCert?.latestDeploymentStatus || null,
         rawStatus: createdCert?.status || 'ACTIVE',
         renewalAttempts: createdCert?.renewalAttempts || 0,
         lastError: createdCert?.lastError || null
@@ -1306,6 +1394,107 @@ export default function App() {
     }
   };
 
+  // 인증서 적용 핸들러
+  const handleApplyCertificate = async () => {
+    if (!certificateToApply) return;
+    
+    // 적용 다이얼로그 닫기
+    setApplyDialogOpen(false);
+    
+    // 진행 다이얼로그 열기 (2단계부터 시작)
+    setRenewProgressDialogOpen(true);
+    setRenewProgress({ step: 2, message: '파일 배포 중...', error: null, type: 'apply' });
+    renewCancelledRef.current = false; // 취소 플래그 초기화
+    
+    try {
+      // 2. 파일 배포 중 (이미 step 2로 설정됨)
+      const step2StartTime = Date.now();
+      
+      // 백엔드 API로 인증서 배포 (비개발 모드에서만)
+      if (!IS_DEV_MODE) {
+        try {
+          await deployCertificateAPI(Number(certificateToApply.id));
+          // 최소 5초 보장
+          const elapsedTime = Date.now() - step2StartTime;
+          if (elapsedTime < 5000) {
+            await new Promise(resolve => setTimeout(resolve, 5000 - elapsedTime));
+          }
+        } catch (error) {
+          console.error('인증서 배포 실패:', error);
+          setRenewProgress({ 
+            step: -1, 
+            message: '적용 실패', 
+            error: error.message || '인증서 적용에 실패했습니다.', 
+            type: 'apply' 
+          });
+          setTimeout(() => {
+            setRenewProgressDialogOpen(false);
+            setRenewProgress({ step: 0, message: '', error: null, type: 'renew' });
+            renewCancelledRef.current = false;
+            setCertificateToApply(null);
+            setRenewFormData({ 
+              serverId: '', 
+              deployImmediately: false 
+            });
+          }, 3000);
+          return;
+        }
+      } else {
+        // 개발 모드: 시뮬레이션 지연 (최소 5초)
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      
+      // 취소 확인
+      if (renewCancelledRef.current) {
+        return;
+      }
+      
+      // 3. 적용 완료
+      setRenewProgress({ step: 3, message: '적용 완료!', error: null, type: 'apply' });
+      
+      // 인증서 목록 다시 로드하여 최신 상태 반영
+      await loadCertificates();
+      
+      // 최소 2.5초 대기 (완료 메시지 표시)
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      // 취소 확인
+      if (renewCancelledRef.current) {
+        return;
+      }
+      
+      // 다이얼로그 닫기
+      setRenewProgressDialogOpen(false);
+      setRenewProgress({ step: 0, message: '', error: null, type: 'renew' });
+      renewCancelledRef.current = false;
+      setCertificateToApply(null);
+      setRenewFormData({ 
+        serverId: '', 
+        deployImmediately: false 
+      });
+    } catch (err) {
+      console.error('인증서 적용 실패:', err);
+      // 실패 상태로 변경
+      setRenewProgress({ 
+        step: -1, 
+        message: '적용 실패', 
+        error: err.message || '인증서 적용 중 오류가 발생했습니다.',
+        type: 'apply'
+      });
+      // 3초 후 다이얼로그 닫기
+      setTimeout(() => {
+        setRenewProgressDialogOpen(false);
+        setRenewProgress({ step: 0, message: '', error: null, type: 'renew' });
+        renewCancelledRef.current = false;
+        setCertificateToApply(null);
+        setRenewFormData({ 
+          serverId: '', 
+          deployImmediately: false 
+        });
+      }, 3000);
+    }
+  };
+
   // 인증서 삭제 핸들러
   const handleDeleteCertificate = async () => {
     if (!certificateToDelete) return;
@@ -1493,16 +1682,18 @@ export default function App() {
         ) : filteredCertificates.length > 0 ? (
           <div className="certificates-grid">
             {filteredCertificates.map((cert) => {
-              const hasServer = cert.serverId !== null && cert.serverId !== undefined;
-              const httpsTestFailed = cert.httpsTestFailed === true;
+              // latestDeploymentStatus로 배포 여부 판단
+              // latestDeploymentStatus가 'SUCCESS'가 아니면 경고 표시
+              const isDeployed = cert.latestDeploymentStatus === 'SUCCESS';
               return (
                 <CertificateCard
                   key={cert.id}
                   certificate={cert}
                   onRenew={handleRenew}
                   onViewDetails={handleViewDetails}
-                  hasServer={hasServer}
-                  httpsTestFailed={httpsTestFailed}
+                  hasServer={isDeployed}
+                  httpsTestFailed={false}
+                  latestDeploymentStatus={cert.latestDeploymentStatus}
                 />
               );
             })}
@@ -2483,20 +2674,28 @@ export default function App() {
                     <>
                       {renewProgress.type === 'add' 
                         ? '인증서 생성 및 배포가 성공적으로 완료되었습니다.'
+                        : renewProgress.type === 'apply'
+                        ? '인증서 적용이 성공적으로 완료되었습니다.'
                         : '인증서 갱신이 성공적으로 완료되었습니다.'}
                       <br />
-                      웹서버가 새로운 인증서로 재기동되었습니다.
+                      웹서버가 새로운 인증서로 적용되었습니다.
                     </>
                   )}
                   {renewProgress.step === -1 && (
                     <span style={{ color: '#dc2626' }}>
-                      {renewProgress.error || (renewProgress.type === 'add' ? "인증서 생성 중 오류가 발생했습니다." : "인증서 갱신 중 오류가 발생했습니다.")}
+                      {renewProgress.error || (
+                        renewProgress.type === 'add' ? "인증서 생성 중 오류가 발생했습니다." 
+                        : renewProgress.type === 'apply' ? "인증서 적용 중 오류가 발생했습니다."
+                        : "인증서 갱신 중 오류가 발생했습니다."
+                      )}
                     </span>
                   )}
                   {renewProgress.step === 0 && (
                     <>
                       {renewProgress.type === 'add' 
                         ? '인증서 생성 및 배포 프로세스를 시작합니다.'
+                        : renewProgress.type === 'apply'
+                        ? '인증서 적용 프로세스를 시작합니다.'
                         : '인증서 갱신 프로세스를 시작합니다.'}
                       <br />
                       이 작업은 몇 분이 소요될 수 있습니다.
@@ -2512,7 +2711,9 @@ export default function App() {
                   <div 
                     className={`progress-bar-fill ${renewProgress.step === -1 ? 'progress-bar-fill-error' : ''}`}
                     style={{ 
-                      width: renewProgress.step === -1 ? '100%' : `${Math.max(0, (renewProgress.step / 3) * 100)}%`,
+                      width: renewProgress.step === -1 ? '100%' : renewProgress.type === 'apply' 
+                        ? `${Math.max(0, ((renewProgress.step - 1) / 2) * 100)}%` // apply는 step 2부터 시작 (2-1)/2 = 50%, (3-1)/2 = 100%
+                        : `${Math.max(0, (renewProgress.step / 3) * 100)}%`,
                       transition: 'width 0.5s ease',
                       backgroundColor: renewProgress.step === -1 ? '#dc2626' : undefined
                     }}
@@ -2564,7 +2765,9 @@ export default function App() {
                       )}
                     </div>
                     <span className="progress-step-text">
-                      {renewProgress.type === 'add' ? '완료' : '갱신 완료'}
+                      {renewProgress.type === 'add' ? '완료' 
+                       : renewProgress.type === 'apply' ? '적용 완료'
+                       : '갱신 완료'}
                     </span>
                   </div>
                 </div>
@@ -2726,6 +2929,7 @@ export default function App() {
                   color: 'white', 
                   borderColor: deleteButtonHoverTime >= 2000 ? '#ef4444' : '#fecaca',
                   padding: '0.5rem 1rem',
+                  cursor: 'pointer',
                   fontSize: '0.875rem',
                   display: 'flex',
                   alignItems: 'center',
@@ -2782,11 +2986,19 @@ export default function App() {
                     </tr>
                     <tr>
                       <th>발급일</th>
-                      <td>{selectedCertificate.issueDate || 'N/A'}</td>
+                      <td>
+                        {selectedCertificate.rawIssueDate 
+                          ? formatDateWithTime(selectedCertificate.rawIssueDate)
+                          : (selectedCertificate.issueDate || 'N/A')}
+                      </td>
                     </tr>
                     <tr>
                       <th>만료일</th>
-                      <td>{selectedCertificate.expiryDate || 'N/A'}</td>
+                      <td>
+                        {selectedCertificate.rawExpiryDate 
+                          ? formatDateOnly(selectedCertificate.rawExpiryDate)
+                          : (selectedCertificate.expiryDate || 'N/A')}
+                      </td>
                     </tr>
                     <tr>
                       <th>상태</th>
@@ -3170,6 +3382,141 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 인증서 적용 다이얼로그 */}
+      {applyDialogOpen && certificateToApply && (() => {
+        const cert = certificateToApply;
+        const hasServer = cert && cert.serverId;
+        const needsServerSetup = !hasServer;
+        
+        return (
+          <div 
+            className="dialog-overlay" 
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setMouseDownTarget(e.target);
+              } else {
+                setMouseDownTarget(null);
+              }
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && mouseDownTarget === e.target) {
+                setApplyDialogOpen(false);
+                setCertificateToApply(null);
+                setRenewFormData({ 
+                  serverId: '', 
+                  deployImmediately: false 
+                });
+              }
+              setMouseDownTarget(null);
+            }}
+          >
+            <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
+              <div className="dialog-header">
+                <div>
+                  <h2 className="dialog-title">인증서 적용</h2>
+                  <p className="dialog-description">
+                    {needsServerSetup 
+                      ? '배포된 서버 정보가 없습니다. 서버 배포 설정을 선택해주세요.'
+                      : '이 인증서를 서버에 적용하시겠습니까? 서버 정보를 확인하고 수정할 수 있습니다.'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="dialog-body" style={{ paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', marginTop: 0 }}>서버 배포 설정</h3>
+                  
+                  {renewFormData.serverId && (() => {
+                    const selectedServer = servers.find(s => String(s.id) === String(renewFormData.serverId));
+                    
+                    return selectedServer ? (
+                      <div className="form-group">
+                        <div style={{ 
+                          padding: '0.75rem', 
+                          border: '1px solid #f97316',
+                          borderRadius: '0.375rem',
+                          marginBottom: '1rem',
+                          position: 'relative'
+                        }}>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <small style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                              배포 서버의 SSH 정보
+                            </small>
+                          </div>
+                          <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>서버 이름:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.name || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>서버 타입:</span>
+                              <span style={{ color: '#6b7280' }}>{formatServerType(selectedServer.serverType) || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 사용자명:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.sshUsername || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>SSH 포트:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.sshPort || 22}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>배포 경로:</span>
+                              <span style={{ color: '#6b7280' }}>{selectedServer.deployPath || '미설정'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600, color: '#374151', minWidth: '100px' }}>인증 방식:</span>
+                              <span style={{ color: '#6b7280' }}>ID/PASSWORD</span>
+                            </div>
+                          </div>
+                          {(!selectedServer.sshUsername || !selectedServer.deployPath) && (
+                            <small style={{ color: '#dc2626', fontSize: '0.75rem', display: 'block', marginTop: '0.5rem' }}>
+                              서버에 SSH 정보가 설정되지 않았습니다. 서버 관리에서 SSH 정보를 설정해주세요.
+                            </small>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="form-group">
+                        <small style={{ color: '#dc2626', fontSize: '0.875rem', display: 'block' }}>
+                          인증서에 연결된 서버 정보를 찾을 수 없습니다.
+                        </small>
+                      </div>
+                    );
+                  })()}
+              </div>
+              
+              <div className="dialog-footer">
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => {
+                    setApplyDialogOpen(false);
+                    setCertificateToApply(null);
+                    setRenewFormData({ 
+                      serverId: '', 
+                      deployImmediately: false 
+                    });
+                  }}
+                  disabled={isApplying}
+                >
+                  취소
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleApplyCertificate}
+                  disabled={isApplying || !cert.serverId}
+                  style={{ 
+                    backgroundColor: isApplying || !cert.serverId ? '#d1d5db' : '#FF6600',
+                    color: 'white'
+                  }}
+                >
+                  {isApplying ? '적용 중...' : '적용'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 인증서 삭제 확인 다이얼로그 */}
       {deleteConfirmDialogOpen && certificateToDelete && (

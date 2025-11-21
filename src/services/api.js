@@ -708,27 +708,28 @@ export async function getDeploymentStatus(certificateId) {
 /**
  * 인증서 배포
  * @param {number} certificateId - 인증서 ID
- * @param {Object} deploymentData - 배포 데이터 (serverId, sshUserId 등)
  * @returns {Promise<Object>} 배포 결과
- * @note 백엔드에 아직 구현되지 않음 - 더미 데이터 사용
  */
-export async function deployCertificate(certificateId, deploymentData) {
-  // TODO: 백엔드 API 구현 후 주석 해제
-  // try {
-  //   const response = await fetch(`${API_BASE_URL}/api/v1/certificates/${certificateId}/deploy`, {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //     },
-  //     body: JSON.stringify(deploymentData),
-  //   });
-  //   return handleResponse(response);
-  // } catch (error) {
-  //   console.error('인증서 배포 실패:', error);
-  //   throw error;
-  // }
+export async function deployCertificate(certificateId) {
+  // 개발 모드가 아닐 때 실제 API 호출 (테스트 모드 및 프로덕션)
+  if (!IS_DEV_MODE) {
+    try {
+      const url = `${API_BASE_URL}/api/v1/certificates/${certificateId}/deploy`;
+      console.log('[API 호출] POST', url);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('인증서 배포 실패:', error);
+      throw error;
+    }
+  }
   
-  // 더미 데이터 반환 (백엔드 미구현)
+  // 개발 모드: 더미 데이터 반환
   await new Promise(resolve => setTimeout(resolve, 1500));
   return Promise.resolve({
     success: true,

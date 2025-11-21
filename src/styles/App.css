@@ -823,6 +823,31 @@
   background-color: #f9fafb;
 }
 
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+  cursor: pointer !important;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+  cursor: pointer !important;
+}
+
+.delete-certificate-btn {
+  cursor: pointer !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.delete-certificate-btn:hover {
+  cursor: pointer !important;
+}
+
+.delete-certificate-btn:active {
+  cursor: pointer !important;
+}
+
 /* 다이얼로그 오버레이 */
 .dialog-overlay {
   position: fixed;
