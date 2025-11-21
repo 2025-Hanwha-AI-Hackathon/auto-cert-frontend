@@ -3008,7 +3008,7 @@ const formatDateOnly = (dateString) => {
                           selectedCertificate.status === 'expiring-soon' ? 'badge-expiring' :
                           'badge-expired'
                         }`} style={{ padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem', display: 'inline-block', lineHeight: '1.2' }}>
-                          {selectedCertificate.status === 'valid' ? '유효' :
+                          {selectedCertificate.status === 'valid' ? '여유 있음' :
                            selectedCertificate.status === 'expiring-soon' ? '곧 만료' :
                            '만료됨'}
                         </span>

@@ -96,7 +96,14 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
     }
   }
   
-  // 개발 모드: 더미 데이터 반환
+  // 개발 모드: 더미 데이터 반환 (3가지 상태 모두 포함)
+  // 현재 날짜 기준으로 만료일 설정
+  const now = new Date();
+  const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  const sixMonthsLater = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+  const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
   return Promise.resolve({
     content: [
       {
@@ -104,7 +111,7 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         domain: 'example.com',
         issuer: "Let's Encrypt",
         issuedAt: '2024-01-15T00:00:00Z',
-        expiresAt: '2024-04-15T00:00:00Z',
+        expiresAt: oneYearLater.toISOString(),
         status: 'ACTIVE',
         admin: '홍길동',
         alertDaysBeforeExpiry: 7,
@@ -113,44 +120,98 @@ export async function getCertificates(page = 0, size = 20, sort = ['createdAt,DE
         renewalAttempts: 0,
         lastError: null,
         createdAt: '2024-01-15T00:00:00Z',
-        updatedAt: '2024-01-15T00:00:00Z'
+        updatedAt: '2024-01-15T00:00:00Z',
+        latestDeploymentStatus: 'SUCCESS'
       },
       {
         id: 2,
-        domain: 'test.example.com',
-        issuer: "Let's Encrypt",
-        issuedAt: '2024-01-10T00:00:00Z',
-        expiresAt: '2024-03-10T00:00:00Z',
-        status: 'EXPIRING_SOON',
+        domain: 'api.example.com',
+        issuer: "DigiCert",
+        issuedAt: '2024-10-15T00:00:00Z',
+        expiresAt: sixMonthsLater.toISOString(),
+        status: 'ACTIVE',
         admin: '김철수',
         alertDaysBeforeExpiry: 7,
         serverId: 2,
-        autoDeploy: false,
+        autoDeploy: true,
         renewalAttempts: 0,
         lastError: null,
-        createdAt: '2024-01-10T00:00:00Z',
-        updatedAt: '2024-01-10T00:00:00Z'
+        createdAt: '2024-10-15T00:00:00Z',
+        updatedAt: '2024-10-15T00:00:00Z',
+        latestDeploymentStatus: 'SUCCESS'
       },
       {
         id: 3,
+        domain: 'dev.example.com',
+        issuer: "Let's Encrypt",
+        issuedAt: '2024-11-01T00:00:00Z',
+        expiresAt: threeDaysLater.toISOString(),
+        status: 'EXPIRING_SOON',
+        admin: '이영희',
+        alertDaysBeforeExpiry: 7,
+        serverId: 3,
+        autoDeploy: false,
+        renewalAttempts: 0,
+        lastError: null,
+        createdAt: '2024-11-01T00:00:00Z',
+        updatedAt: '2024-11-01T00:00:00Z',
+        latestDeploymentStatus: 'SUCCESS'
+      },
+      {
+        id: 4,
+        domain: 'staging.example.com',
+        issuer: "Let's Encrypt",
+        issuedAt: '2024-09-10T00:00:00Z',
+        expiresAt: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'EXPIRING_SOON',
+        admin: '최지영',
+        alertDaysBeforeExpiry: 7,
+        serverId: 4,
+        autoDeploy: false,
+        renewalAttempts: 0,
+        lastError: null,
+        createdAt: '2024-09-10T00:00:00Z',
+        updatedAt: '2024-09-10T00:00:00Z',
+        latestDeploymentStatus: 'SUCCESS'
+      },
+      {
+        id: 5,
         domain: 'expired.example.com',
         issuer: "Let's Encrypt",
         issuedAt: '2023-01-01T00:00:00Z',
-        expiresAt: '2024-01-01T00:00:00Z',
+        expiresAt: oneMonthAgo.toISOString(),
         status: 'EXPIRED',
-        admin: '이영희',
+        admin: '박민수',
         alertDaysBeforeExpiry: 7,
         serverId: null,
         autoDeploy: false,
         renewalAttempts: 1,
         lastError: null,
         createdAt: '2023-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z'
+        updatedAt: '2024-01-01T00:00:00Z',
+        latestDeploymentStatus: null
+      },
+      {
+        id: 6,
+        domain: 'old.example.com',
+        issuer: "Comodo",
+        issuedAt: '2023-06-01T00:00:00Z',
+        expiresAt: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'EXPIRED',
+        admin: '정수진',
+        alertDaysBeforeExpiry: 7,
+        serverId: null,
+        autoDeploy: false,
+        renewalAttempts: 2,
+        lastError: 'Renewal failed',
+        createdAt: '2023-06-01T00:00:00Z',
+        updatedAt: '2024-01-15T00:00:00Z',
+        latestDeploymentStatus: null
       }
     ],
     page: page,
     size: size,
-    totalElements: 3,
+    totalElements: 6,
     totalPages: 1,
     first: true,
     last: true,

@@ -51,7 +51,7 @@ export function CertificateStats({ total, valid, expiringSoon, expired, onFilter
       filterValue: "all"
     },
     {
-      title: "유효",
+      title: "여유 있음",
       value: valid,
       icon: CheckCircle2,
       color: "#10B981",

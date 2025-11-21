@@ -53,7 +53,7 @@ export function CertificateCard({ certificate, onRenew, onViewDetails, hasServer
         return (
           <span ref={badgeRef} className={`${badgeClass} badge-valid`}>
             <CheckCircle2 className="badge-icon" />
-            <span className="badge-text">유효</span>
+            <span className="badge-text">여유 있음</span>
           </span>
         );
       case 'expiring-soon':
